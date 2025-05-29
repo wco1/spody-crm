@@ -1,0 +1,19 @@
+{
+  "name": "@spody/supabase-client",
+  "version": "1.0.0",
+  "description": "Shared Supabase client for Spody ecosystem",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
+    "@spody/types": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+} 
