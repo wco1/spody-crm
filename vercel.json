@@ -14,10 +14,5 @@
     },
     "regions": [
         "cle1"
-    ],
-    "functions": {
-        "crm-standalone/app/api/**": {
-            "runtime": "nodejs18.x"
-        }
-    }
+    ]
 }
