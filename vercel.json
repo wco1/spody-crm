@@ -1,0 +1,23 @@
+{
+    "$schema": "https://openapi.vercel.sh/vercel.json",
+    "name": "spody-crm-staging",
+    "version": 2,
+    "buildCommand": "cd crm-standalone && npm install && npm run build",
+    "devCommand": "cd crm-standalone && npm run dev",
+    "outputDirectory": "crm-standalone/.next",
+    "installCommand": "cd crm-standalone && npm install",
+    "framework": "nextjs",
+    "build": {
+        "env": {
+            "NODE_VERSION": "20"
+        }
+    },
+    "regions": [
+        "cle1"
+    ],
+    "functions": {
+        "crm-standalone/app/api/**": {
+            "runtime": "nodejs18.x"
+        }
+    }
+}
