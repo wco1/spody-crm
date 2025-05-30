@@ -35,7 +35,7 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const serviceKey = process.env.SUPABASE_SERVICE_KEY || '';
 
 // Создаем клиент Supabase с анонимным ключом по умолчанию
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = serviceKey ? createClient(supabaseUrl, serviceKey) : createClient(supabaseUrl, supabaseAnonKey);
 
 // При необходимости можно использовать клиент с сервисным ключом 
 // (временное решение для отладки - не рекомендуется для продакшн)
@@ -831,7 +831,7 @@ async function testInsertRecord(client: typeof supabase) {
         avatar_url: '',
         traits: [],
         genres: [],
-        gender: 'female'
+        // gender: 'female'
       };
       
       console.log('Создаем временную тестовую запись для проверки доступа:', testRecord.name);
