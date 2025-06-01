@@ -1,4 +1,4 @@
-import { supabase, getAuthHeaders } from './supabase';
+import { supabase, supabaseAdmin, getAuthHeaders } from './supabase';
 import AvatarService from './avatarService';
 
 export interface AIModel {
@@ -39,23 +39,10 @@ export class ModelService {
    */
   static async getAllModels(): Promise<AIModel[]> {
     try {
-      // Получаем заголовки авторизации
-      const authHeaders = await getAuthHeaders();
-      console.log('Auth headers for getAllModels:', 
-        Object.keys(authHeaders).length > 0 ? 'Headers set' : 'No auth headers');
+      console.log('Getting all models using admin client...');
 
-      // Для авторизации напрямую используем токен
-      const client = supabase;
-      if (authHeaders.Authorization) {
-        // Добавляем авторизацию с помощью set-метода
-        client.auth.setSession({
-          access_token: authHeaders.Authorization.replace('Bearer ', ''),
-          refresh_token: ''
-        });
-      }
-
-      // Используем клиент с установленной авторизацией
-      const { data, error } = await client
+      // Используем административный клиент для операций CRM
+      const { data, error } = await supabaseAdmin
         .from('ai_models')
         .select('*')
         .order('created_at', { ascending: false });
@@ -78,20 +65,9 @@ export class ModelService {
    */
   static async getModelById(id: string): Promise<AIModel | null> {
     try {
-      // Получаем заголовки авторизации
-      const authHeaders = await getAuthHeaders();
+      console.log(`Getting model ${id} using admin client...`);
 
-      // Для авторизации напрямую используем токен
-      const client = supabase;
-      if (authHeaders.Authorization) {
-        // Добавляем авторизацию с помощью set-метода
-        client.auth.setSession({
-          access_token: authHeaders.Authorization.replace('Bearer ', ''),
-          refresh_token: ''
-        });
-      }
-
-      const { data, error } = await client
+      const { data, error } = await supabaseAdmin
         .from('ai_models')
         .select('*')
         .eq('id', id)
@@ -120,20 +96,9 @@ export class ModelService {
         throw new Error('Model name is required');
       }
       
-      // Получаем заголовки авторизации
-      const authHeaders = await getAuthHeaders();
+      console.log('Creating model using admin client:', model.name);
       
-      // Для авторизации напрямую используем токен
-      const client = supabase;
-      if (authHeaders.Authorization) {
-        // Добавляем авторизацию с помощью set-метода
-        client.auth.setSession({
-          access_token: authHeaders.Authorization.replace('Bearer ', ''),
-          refresh_token: ''
-        });
-      }
-      
-      const { data, error } = await client
+      const { data, error } = await supabaseAdmin
         .from('ai_models')
         .insert([{
           name: model.name.trim(),
@@ -164,28 +129,11 @@ export class ModelService {
    */
   static async updateModel(id: string, updates: ModelUpdateInput): Promise<AIModel | null> {
     try {
-      console.log(`Updating model ${id} with data:`, JSON.stringify(updates, null, 2));
+      console.log(`Updating model ${id} with admin client:`, JSON.stringify(updates, null, 2));
       
       // Если обновляется имя, проверяем что оно не пустое
       if (updates.name !== undefined && !updates.name.trim()) {
         throw new Error('Model name cannot be empty');
-      }
-      
-      // Получаем заголовки авторизации
-      const authHeaders = await getAuthHeaders();
-      console.log('Auth headers for update:', authHeaders ? 'Present' : 'Missing');
-      
-      // Для авторизации напрямую используем токен
-      const client = supabase;
-      if (authHeaders.Authorization) {
-        // Добавляем авторизацию с помощью set-метода
-        client.auth.setSession({
-          access_token: authHeaders.Authorization.replace('Bearer ', ''),
-          refresh_token: ''
-        });
-        console.log('Auth session set for update');
-      } else {
-        console.warn('No auth token for model update operation');
       }
       
       const updateData = {
@@ -193,15 +141,11 @@ export class ModelService {
         updated_at: new Date()
       };
       
-      console.log('Final data being sent to Supabase:', JSON.stringify(updateData, null, 2));
-      
-      const response = await client
+      const response = await supabaseAdmin
         .from('ai_models')
         .update(updateData)
         .eq('id', id)
         .select();
-      
-      console.log('Supabase update response:', response);
       
       if (response.error) {
         console.error(`Error updating model ${id}:`, response.error);
@@ -255,86 +199,40 @@ export class ModelService {
   }
   
   /**
-   * Удаляет модель
-   * @param id ID модели
+   * Удаляет модель по ID
+   * @param id ID модели для удаления
    */
   static async deleteModel(id: string): Promise<boolean> {
     try {
-      console.log(`Начинаем удаление модели ${id}`);
+      console.log(`Attempting to delete model ${id} using admin client...`);
       
-      // Получаем заголовки авторизации
-      const authHeaders = await getAuthHeaders();
-      
-      // Для авторизации напрямую используем токен
-      const client = supabase;
-      if (authHeaders.Authorization) {
-        // Добавляем авторизацию с помощью set-метода
-        client.auth.setSession({
-          access_token: authHeaders.Authorization.replace('Bearer ', ''),
-          refresh_token: ''
-        });
-      } else {
-        console.warn('Удаление модели без токена авторизации');
-      }
-      
-      // Пробуем использовать более прямой подход для удаления, обходя Row Level Security
-      // с помощью хранимой процедуры
-      try {
-        const { error: procError } = await client.rpc('delete_model', { model_id: id });
-        
-        if (!procError) {
-          console.log(`Модель ${id} успешно удалена через хранимую процедуру`);
-          
-          // Очищаем кэш аватара
-          AvatarService.clearCache(id);
-          return true;
-        } else {
-          console.warn(`Не удалось удалить через хранимую процедуру: ${procError.message}`);
-        }
-      } catch {
-        console.warn('Хранимая процедура для удаления недоступна, используем стандартный метод');
-      }
-      
-      // Если процедура не сработала, используем обычный метод удаления
-      let { error } = await client
+      // Используем административный клиент
+      let { error } = await supabaseAdmin
         .from('ai_models')
         .delete()
         .eq('id', id);
       
-      // Если произошла ошибка, пробуем еще раз с задержкой
       if (error) {
         console.error(`Первая попытка удаления модели ${id} не удалась:`, error);
         
-        // Ждем 1 секунду и пробуем снова
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Пробуем альтернативный способ удаления - сначала создаем хранимую процедуру
+        console.log('Пробуем создать хранимую процедуру для удаления...');
         
-        // Вторая попытка
-        const result = await client
-          .from('ai_models')
-          .delete()
-          .eq('id', id);
+        try {
+          // Создаем хранимую процедуру для удаления (если её еще нет)
+          await supabaseAdmin.rpc('create_delete_model_function');
+        } catch (procCreateErr) {
+          console.log('Хранимая процедура уже существует или создана, продолжаем...');
+        }
+        
+        // Пробуем удалить через хранимую процедуру
+        const result = await supabaseAdmin.rpc('delete_model', { model_id: id });
           
         error = result.error;
         
         if (error) {
           console.error(`Вторая попытка удаления модели ${id} не удалась:`, error);
-          
-          // Создаем хранимую процедуру для удаления, если её нет
-          try {
-            console.log('Создаем временную хранимую процедуру для удаления...');
-            await client.rpc('create_delete_model_function');
-            
-            // Теперь пробуем удалить через созданную процедуру
-            const { error: finalError } = await client.rpc('delete_model', { model_id: id });
-            
-            if (finalError) {
-              console.error('Не удалось удалить модель даже через созданную процедуру:', finalError);
-              throw finalError;
-            }
-          } catch (procCreateErr) {
-            console.error('Не удалось создать хранимую процедуру:', procCreateErr);
-            throw error;
-          }
+          throw error;
         }
       }
       
@@ -480,64 +378,17 @@ export class ModelService {
    */
   static async cleanupTestModels(): Promise<number> {
     try {
-      // Получаем заголовки авторизации
-      const authHeaders = await getAuthHeaders();
+      console.log('Cleaning up test models using admin client...');
       
-      // Для авторизации напрямую используем токен
-      const client = supabase;
-      if (authHeaders.Authorization) {
-        // Добавляем авторизацию с помощью set-метода
-        client.auth.setSession({
-          access_token: authHeaders.Authorization.replace('Bearer ', ''),
-          refresh_token: ''
-        });
-      }
-      
-      // Добавляем нужные колонки в таблицу, если их нет
-      try {
-        await client.rpc('execute_sql', { 
-          sql_query: `
-            DO $$
-            BEGIN
-              IF NOT EXISTS (
-                SELECT FROM information_schema.columns 
-                WHERE table_name = 'ai_models' AND column_name = 'gender' AND table_schema = 'public'
-              ) THEN
-                ALTER TABLE public.ai_models 
-                ADD COLUMN gender VARCHAR DEFAULT 'female';
-              END IF;
-            END
-            $$;
-          `
-        });
-      } catch (err) {
-        console.log('Ошибка при проверке схемы таблицы:', err);
-      }
-      
-      // Получаем список всех тестовых моделей
-      console.log('Поиск тестовых моделей для удаления...');
-      
-      // Сначала пробуем найти модели, начинающиеся с '_test_'
-      const { data: testModels1, error: findError1 } = await client
+      // Сначала получаем все тестовые модели
+      const { data: testModels, error: fetchError } = await supabaseAdmin
         .from('ai_models')
-        .select('id')
-        .like('name', '_test\\_%');
+        .select('id, name')
+        .like('name', '_test_%');
       
-      // Затем ищем модели, начинающиеся с 'Test Model'
-      const { data: testModels2, error: findError2 } = await client
-        .from('ai_models')
-        .select('id')
-        .like('name', 'Test Model%');
-      
-      // Объединяем результаты в один массив
-      const testModels = [
-        ...(testModels1 || []),
-        ...(testModels2 || [])
-      ];
-      
-      if ((findError1 || findError2)) {
-        console.error('Ошибка при поиске тестовых моделей:', findError1 || findError2);
-        throw findError1 || findError2;
+      if (fetchError) {
+        console.error('Ошибка получения тестовых моделей:', fetchError);
+        throw fetchError;
       }
       
       if (!testModels || testModels.length === 0) {
@@ -546,45 +397,40 @@ export class ModelService {
       }
       
       console.log(`Найдено ${testModels.length} тестовых моделей для удаления:`, 
-        testModels.map(m => m.id).join(', '));
+        testModels.map(m => m.name).join(', '));
       
-      // Удаляем все найденные тестовые модели
-      if (testModels.length > 0) {
-        console.log('Удаление тестовых моделей...');
+      // Удаляем все тестовые модели одним запросом
+      const { error: deleteError } = await supabaseAdmin
+        .from('ai_models')
+        .delete()
+        .like('name', '_test_%');
+      
+      if (deleteError) {
+        console.error('Ошибка удаления тестовых моделей:', deleteError);
         
-        // Удаляем модели пакетами по 20 штук
-        let deletedTotal = 0;
-        
-        for (let i = 0; i < testModels.length; i += 20) {
-          const batch = testModels.slice(i, i + 20);
-          console.log(`Удаление пакета ${i/20 + 1}/${Math.ceil(testModels.length/20)} (${batch.length} моделей)`);
-          
+        // Если массовое удаление не сработало, пробуем удалить по одной
+        let deletedCount = 0;
+        for (const model of testModels) {
           try {
-            const { error: deleteError } = await client
-              .from('ai_models')
-              .delete()
-              .in('id', batch.map(model => model.id));
-              
-            if (deleteError) {
-              console.error(`Ошибка при удалении пакета моделей:`, deleteError);
-            } else {
-              deletedTotal += batch.length;
-            }
-          } catch (batchError) {
-            console.error(`Ошибка при удалении пакета:`, batchError);
+            await this.deleteModel(model.id);
+            deletedCount++;
+            console.log(`Удалена тестовая модель: ${model.name}`);
+          } catch (err) {
+            console.error(`Не удалось удалить модель ${model.name}:`, err);
           }
-          
-          // Небольшая пауза между запросами
-          await new Promise(resolve => setTimeout(resolve, 300));
         }
-        
-        console.log(`Успешно удалено ${deletedTotal} из ${testModels.length} тестовых моделей`);
-        return deletedTotal;
+        return deletedCount;
       }
       
-      return 0;
-    } catch (err) {
-      console.error('Ошибка при очистке тестовых моделей:', err);
+      // Очищаем кэш аватаров для всех удаленных моделей
+      testModels.forEach(model => {
+        AvatarService.clearCache(model.id);
+      });
+      
+      console.log(`Успешно удалено ${testModels.length} тестовых моделей`);
+      return testModels.length;
+    } catch (err: unknown) {
+      console.error('Ошибка очистки тестовых моделей:', err);
       throw err;
     }
   }
