@@ -22,31 +22,39 @@ interface AIModel {
   user_id?: string;
 }
 
-// Подключение к Supabase с использованием корректного API ключа
-const supabaseUrl = 'https://avfdefowtxijmlvocodx.supabase.co';
+// Получаем переменные окружения
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const serviceKey = process.env.SUPABASE_SERVICE_KEY;
 
-// Анонимный ключ (ограниченные права доступа)
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZmRlZm93dHhpam1sdm9jb2R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDg0MDksImV4cCI6MjA2NDEyNDQwOX0.vPcqC3Dp3jAE7uhCz-NoLotRV0P02VtHKfP6KstAFTk';
+// Проверяем наличие обязательных переменных
+if (!supabaseUrl) {
+  console.error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable');
+}
 
-// Сервисный ключ (не включен по умолчанию - использовать только если нужен полный доступ к базе)
-// Внимание: этот ключ должен храниться в секрете и использоваться только для отладки
-// или для операций, выполняемых на стороне сервера
-// Замените 'YOUR_SERVICE_KEY_HERE' на реальный сервисный ключ при необходимости
-const serviceKey = process.env.SUPABASE_SERVICE_KEY || '';
+if (!supabaseAnonKey) {
+  console.error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable');
+}
+
+if (!serviceKey) {
+  console.error('Missing SUPABASE_SERVICE_KEY environment variable');
+}
 
 // Создаем клиент Supabase с анонимным ключом по умолчанию
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = (supabaseUrl && supabaseAnonKey) 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
 
 // При необходимости можно использовать клиент с сервисным ключом 
 // (временное решение для отладки - не рекомендуется для продакшн)
-export const supabaseAdmin = serviceKey 
+export const supabaseAdmin = (supabaseUrl && serviceKey) 
   ? createClient(supabaseUrl, serviceKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false
       }
     })
-  : supabase;
+  : null;
 
 // Константа для имени bucket'а для аватаров моделей
 export const AVATARS_BUCKET = 'ai-models-avatars';
@@ -66,6 +74,11 @@ export const FALLBACK_AVATARS = {
  * @returns Статус проверки bucket'а
  */
 export async function ensureAvatarsBucketExists(): Promise<boolean> {
+  if (!supabase) {
+    console.error('Supabase client not initialized');
+    return false;
+  }
+
   try {
     console.log(`Проверка существования bucket'а ${AVATARS_BUCKET}...`);
     
@@ -106,6 +119,13 @@ export async function ensureAvatarsBucketExists(): Promise<boolean> {
  * @returns Данные об успешной загрузке, включая публичный URL
  */
 export async function uploadAvatarAndUpdateModel(file: File, modelId: string): Promise<{ success: boolean; url?: string; error?: Error | unknown }> {
+  if (!supabase) {
+    return { 
+      success: false, 
+      error: new Error('Supabase client not initialized. Please check environment variables.') 
+    };
+  }
+
   try {
     // Проверка входящих параметров
     if (!file || !modelId) {

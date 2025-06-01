@@ -38,6 +38,11 @@ export class ModelService {
    * Получает все модели из базы данных
    */
   static async getAllModels(): Promise<AIModel[]> {
+    if (!supabaseAdmin) {
+      console.error('Supabase admin client not initialized');
+      throw new Error('Database connection not available');
+    }
+
     try {
       console.log('Getting all models using admin client...');
 
@@ -64,6 +69,11 @@ export class ModelService {
    * @param id ID модели
    */
   static async getModelById(id: string): Promise<AIModel | null> {
+    if (!supabaseAdmin) {
+      console.error('Supabase admin client not initialized');
+      return null;
+    }
+
     try {
       console.log(`Getting model ${id} using admin client...`);
 
@@ -90,6 +100,11 @@ export class ModelService {
    * @param model Данные модели
    */
   static async createModel(model: ModelCreateInput): Promise<AIModel | null> {
+    if (!supabaseAdmin) {
+      console.error('Supabase admin client not initialized');
+      throw new Error('Database connection not available');
+    }
+
     try {
       // Проверяем обязательные поля
       if (!model.name.trim()) {
@@ -128,6 +143,11 @@ export class ModelService {
    * @param updates Обновляемые поля
    */
   static async updateModel(id: string, updates: ModelUpdateInput): Promise<AIModel | null> {
+    if (!supabaseAdmin) {
+      console.error('Supabase admin client not initialized');
+      throw new Error('Database connection not available');
+    }
+
     try {
       console.log(`Updating model ${id} with admin client:`, JSON.stringify(updates, null, 2));
       
