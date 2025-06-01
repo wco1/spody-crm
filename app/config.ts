@@ -6,8 +6,8 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.spody.app';
 
 // Supabase конфигурация
-export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://kulssuzzjwlyacqvawau.supabase.co';
-export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1bHNzdXp6andseWFjcXZhd2F1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU5MTg4MDIsImV4cCI6MjA2MTQ5NDgwMn0.pwiWgJY764y1f_4naIDwhUvr-dFAF-jFvkkJRN-TpVw';
+export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://avfdefowtxijmlvocodx.supabase.co';
+export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZmRlZm93dHhpam1sdm9jb2R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDg0MDksImV4cCI6MjA2NDEyNDQwOX0.vPcqC3Dp3jAE7uhCz-NoLotRV0P02VtHKfP6KstAFTk';
 
 // OpenRouter API ключ
 export const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || 'sk-or-v1-your-key-here';

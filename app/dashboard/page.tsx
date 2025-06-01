@@ -144,18 +144,36 @@ export default function Dashboard() {
         const userMessages = chatMessagesData?.filter(msg => msg.is_user === true) || [];
         console.log('👤 Пользовательские сообщения:', userMessages.length);
 
-        // Получаем данные бесед (если есть)
-        const { data: conversationsData, error: conversationsError } = await supabase
+        // Получаем данные бесед (если есть) - опциональный запрос
+        let conversationsData = null;
+        let conversationsError = null;
+        try {
+          const conversationsResult = await supabase
           .from('conversations')
           .select('*')
           .limit(1000);
+          conversationsData = conversationsResult.data;
+          conversationsError = conversationsResult.error;
+        } catch (err) {
+          console.log('⚠️ Таблица conversations недоступна (возможно не создана в staging)');
+          conversationsError = { message: 'Таблица не найдена' };
+        }
         
         console.log('💬 Беседы:', conversationsError ? `Ошибка: ${conversationsError.message}` : `Загружено: ${conversationsData?.length || 0}`);
 
-        // Получаем данные чатов для дополнительной статистики
-        const { data: chatsData, error: chatsError } = await supabase
+        // Получаем данные чатов для дополнительной статистики - опциональный запрос
+        let chatsData = null;
+        let chatsError = null;
+        try {
+          const chatsResult = await supabase
           .from('chats')
           .select('*');
+          chatsData = chatsResult.data;
+          chatsError = chatsResult.error;
+        } catch (err) {
+          console.log('⚠️ Таблица chats недоступна (возможно не создана в staging)');
+          chatsError = { message: 'Таблица не найдена' };
+        }
         
         console.log('🗨️ Чаты:', chatsError ? `Ошибка: ${chatsError.message}` : `Загружено: ${chatsData?.length || 0}`);
 

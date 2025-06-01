@@ -33,8 +33,20 @@ interface DiagnosticResult {
   error?: string;
 }
 
+// Интерфейс для промптов
+interface Prompt {
+  id: string;
+  model_id: string;
+  prompt_text: string;
+  version: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function ModelsPage() {
   const [models, setModels] = useState<AIModel[]>([]);
+  const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
@@ -47,6 +59,10 @@ export default function ModelsPage() {
   const [fileUploading, setFileUploading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [cacheStatus, setCacheStatus] = useState<{cleared: boolean, message: string} | null>(null);
+  const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
+  const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
+  const [showPromptModal, setShowPromptModal] = useState(false);
+  const [currentModelId, setCurrentModelId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Новая модель (для добавления)
@@ -58,6 +74,110 @@ export default function ModelsPage() {
     genres: [] as string[],
     gender: ''
   });
+
+  // Новый промпт
+  const [newPrompt, setNewPrompt] = useState({
+    prompt_text: '',
+    version: 1,
+    is_active: true
+  });
+
+  // Загрузка данных
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [modelsRes, promptsRes] = await Promise.all([
+        fetch('/api/models'),
+        fetch('/api/prompts')
+      ]);
+
+      if (modelsRes.ok) {
+        const modelsData = await modelsRes.json();
+        setModels(modelsData || []);
+      }
+
+      if (promptsRes.ok) {
+        const promptsData = await promptsRes.json();
+        setPrompts(promptsData.prompts || []);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки данных:', error);
+      setError('Ошибка загрузки данных');
+    }
+    setLoading(false);
+  };
+
+  // Получить промпты для конкретной модели
+  const getModelPrompts = (modelId: string) => {
+    return prompts.filter(prompt => prompt.model_id === modelId);
+  };
+
+  // Создание нового промпта
+  const handleCreatePrompt = async () => {
+    if (!currentModelId) return;
+
+    try {
+      const response = await fetch('/api/prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model_id: currentModelId,
+          ...newPrompt
+        })
+      });
+
+      if (response.ok) {
+        setShowPromptModal(false);
+        setNewPrompt({
+          prompt_text: '',
+          version: 1,
+          is_active: true
+        });
+        loadData();
+      }
+    } catch (error) {
+      console.error('Ошибка создания промпта:', error);
+    }
+  };
+
+  // Обновление промпта
+  const handleUpdatePrompt = async (promptId: string, updates: Partial<Prompt>) => {
+    try {
+      const response = await fetch(`/api/prompts/${promptId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+
+      if (response.ok) {
+        setEditingPrompt(null);
+        loadData();
+      }
+    } catch (error) {
+      console.error('Ошибка обновления промпта:', error);
+    }
+  };
+
+  // Удаление промпта
+  const handleDeletePrompt = async (promptId: string) => {
+    if (!confirm('Вы уверены, что хотите удалить этот промпт?')) return;
+
+    try {
+      const response = await fetch(`/api/prompts/${promptId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        loadData();
+      }
+    } catch (error) {
+      console.error('Ошибка удаления промпта:', error);
+    }
+  };
 
   // Обработчик загрузки файла аватара
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -257,82 +377,6 @@ export default function ModelsPage() {
     }
   };
 
-  // Загрузка списка моделей
-  useEffect(() => {
-    async function fetchModels() {
-      setLoading(true);
-      setError('');
-      
-      try {
-        // Убираем создание хранимой процедуры - используем стандартное удаление
-        
-        // First, aggressively clean up any test models
-        try {
-          console.log('Выполнение агрессивной очистки тестовых моделей при загрузке страницы...');
-          const totalDeleted = await CleanupService.runWithTiming();
-          
-          if (totalDeleted > 0) {
-            console.log(`Успешно удалено ${totalDeleted} тестовых моделей при загрузке страницы`);
-            // Отображаем сообщение об автоочистке
-            setCacheStatus({
-              cleared: true,
-              message: `Автоочистка: удалено ${totalDeleted} тестовых моделей`
-            });
-            
-            setTimeout(() => {
-              setCacheStatus(null);
-            }, 5000);
-          }
-        } catch (cleanupError) {
-          console.error('Ошибка при агрессивной очистке тестовых моделей:', cleanupError);
-        }
-        
-        // Skip the test insertion completely
-        console.log('Запуск диагностики базы данных (без тестовой вставки)...');
-        const dbInfo = await getDatabaseInfo(true); // Pass true to skip test insertion
-        console.log('Результат диагностики:', dbInfo);
-        
-        // Convert result to DiagnosticResult type
-        const diagnosticData: DiagnosticResult = {
-          success: dbInfo.success,
-          user: dbInfo.user,
-          aiModelsCount: dbInfo.aiModelsCount || 0,
-          aiModelsData: dbInfo.aiModelsData as AIModel[] || [],
-          insertTest: dbInfo.insertTest,
-          error: dbInfo.error ? String(dbInfo.error) : undefined
-        };
-        setDiagnosticResult(diagnosticData);
-        
-        console.log('Загрузка моделей из таблицы ai_models...');
-        
-        // Load all models using the service
-        const models = await ModelService.getAllModels();
-        console.log(`Загружено ${models.length} моделей`);
-        
-        // Filter out any remaining test models from the display
-        const filteredModels = models.filter(model => 
-          !model.name.startsWith('_test_') && 
-          !model.name.startsWith('Test Model') &&
-          !model.name.toLowerCase().includes('test')
-        );
-        
-        if (filteredModels.length < models.length) {
-          console.log(`Отфильтровано ${models.length - filteredModels.length} тестовых моделей из отображения`);
-        }
-        
-        setModels(filteredModels);
-      } catch (error: unknown) {
-        const err = error as Error;
-        console.error('Ошибка при загрузке моделей:', err);
-        setError('Не удалось загрузить модели. Пожалуйста, попробуйте позже.');
-      } finally {
-        setLoading(false);
-      }
-    }
-    
-    fetchModels();
-  }, []);
-
   // Переключение отображения диагностики
   const toggleDiagnostics = () => {
     setShowDiagnostics(!showDiagnostics);
@@ -363,6 +407,7 @@ export default function ModelsPage() {
   // Обработчик закрытия модального окна
   const closeModal = () => {
     setIsModalOpen(false);
+    setShowPromptModal(false);
     // Очищаем превью при закрытии модального окна
     if (avatarPreview) {
       URL.revokeObjectURL(avatarPreview);
@@ -403,7 +448,7 @@ export default function ModelsPage() {
         'i.imgur.com', 'imgur.com', 'res.cloudinary.com',
         'images.unsplash.com', 'unsplash.com', 'drive.google.com', 
         'googleusercontent.com', 'storage.cloud.google.com',
-        'kulssuzzjwlyacqvawau.supabase.co', 'vercel.app',
+        'kulssuzzwjlyacqvawau.supabase.co', 'vercel.app',
         'amazonaws.com', 's3.amazonaws.com', 'storage.yandexcloud.net',
         'cdn.', 'media.', 'img.', 'photo.', 'pics.', 'static.',
         'images.'
@@ -727,10 +772,27 @@ export default function ModelsPage() {
     });
   };
 
+  // Обработчик открытия модального окна для создания промпта
+  const openPromptModal = (modelId: string) => {
+    setCurrentModelId(modelId);
+    setShowPromptModal(true);
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2"></div>
+          <p>Загрузка...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Управление моделями AI</h1>
+        <h1 className="text-2xl font-bold">Управление AI моделями и промптами</h1>
         <div className="flex space-x-2">
           <button
             className="btn-primary text-sm py-1.5"
@@ -810,112 +872,262 @@ export default function ModelsPage() {
         </div>
       )}
 
-      {/* Таблица моделей */}
-      {!loading && models.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Аватар
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Имя
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Описание
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Пол
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Создано
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Действия
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {models.map((model) => (
-                <tr key={model.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="relative h-12 w-12 rounded-full overflow-hidden bg-gray-100 border border-gray-200">
+      {/* Таблица моделей с промптами */}
+      {models.length > 0 ? (
+        <div className="space-y-4">
+          {models.map((model) => (
+            <div key={model.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              {/* Основная информация о модели */}
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="relative h-16 w-16 rounded-full overflow-hidden bg-gray-100 border border-gray-200">
                       <Image
-                        src={model.avatar_url && isValidURL(model.avatar_url) ? model.avatar_url : (
-                          model.gender === 'male' ? '/default-male-avatar.png' : '/default-female-avatar.png'
-                        )}
+                        src={model.avatar_url || '/default-avatar.png'}
                         alt={model.name}
                         fill
-                        sizes="48px"
-                        priority={true}
-                        unoptimized={true}
+                        sizes="64px"
                         className="object-cover"
                         onError={(e) => {
-                          // При ошибке загрузки заменяем на дефолтный аватар без логирования ошибки
+                          // Заменяем на default аватар при ошибке загрузки
                           const target = e.target as HTMLImageElement;
-                          const defaultAvatar = model.gender === 'male' 
-                            ? '/default-male-avatar.png' 
-                            : '/default-female-avatar.png';
-                          
-                          console.warn(`Не удалось загрузить аватар по URL: ${target.src}`);
-                          target.src = defaultAvatar;
-                            
-                          // Очищаем кэш некорректного URL-аватара
-                          if (model.avatar_url) {
-                            AvatarService.clearCache(model.id);
-                          }
+                          target.src = '/default-avatar.png';
+                          console.warn(`Ошибка загрузки аватара для модели ${model.name}: ${model.avatar_url}`);
                         }}
+                        placeholder="blur"
+                        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+                        priority={false}
+                        unoptimized={process.env.NODE_ENV === 'development'}
                       />
                     </div>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {model.name}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                    {truncateText(model.bio)}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                    {model.gender === 'male' ? 'Мужской' : 
-                     model.gender === 'female' ? 'Женский' : 'Не указан'}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(model.created_at)}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                    <button 
-                        className="text-indigo-600 hover:text-indigo-900"
-                        onClick={() => openEditModal(model)}
-                      >
-                            Редактировать
-                          </button>
-                          <button
-                        className="text-red-600 hover:text-red-900"
-                        onClick={() => deleteModel(model.id)}
-                          >
-                            Удалить
-                          </button>
-                      <button
-                        className="text-blue-600 hover:text-blue-900"
-                        onClick={() => handleClearCache(model.id)}
-                      >
-                        Сбросить кэш
-                      </button>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{model.name}</h3>
+                      <p className="text-sm text-gray-600">{truncateText(model.bio, 100)}</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {model.traits?.slice(0, 3).map(trait => (
+                          <span key={trait} className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                            {trait}
+                          </span>
+                        ))}
                       </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => openPromptModal(model.id)}
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm"
+                    >
+                      + Промпт
+                    </button>
+                    
+                    <button
+                      onClick={() => setExpandedModelId(expandedModelId === model.id ? null : model.id)}
+                      className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm"
+                    >
+                      {expandedModelId === model.id ? 'Скрыть' : 'Показать'} промпты ({getModelPrompts(model.id).length})
+                    </button>
+                    
+                    <button
+                      onClick={() => openEditModal(model)}
+                      className="text-indigo-600 hover:text-indigo-900 text-sm"
+                    >
+                      Редактировать
+                    </button>
+                    
+                    <button
+                      onClick={() => deleteModel(model.id)}
+                      className="text-red-600 hover:text-red-900 text-sm"
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Промпты модели (раскрывающийся список) */}
+              {expandedModelId === model.id && (
+                <div className="p-4 bg-gray-50">
+                  <h4 className="text-md font-medium mb-3">Промпты для {model.name}</h4>
+                  
+                  {getModelPrompts(model.id).length > 0 ? (
+                    <div className="space-y-3">
+                      {getModelPrompts(model.id).map(prompt => (
+                        <div key={prompt.id} className="bg-white p-4 rounded border">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-1 rounded-full text-xs ${
+                                prompt.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {prompt.is_active ? 'Активный' : 'Неактивный'}
+                              </span>
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                                v{prompt.version}
+                              </span>
+                            </div>
+                            
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => setEditingPrompt(prompt)}
+                                className="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs"
+                              >
+                                Редактировать
+                              </button>
+                              <button
+                                onClick={() => handleDeletePrompt(prompt.id)}
+                                className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs"
+                              >
+                                Удалить
+                              </button>
+                            </div>
+                          </div>
+                          
+                          {editingPrompt?.id === prompt.id ? (
+                            <div className="space-y-3">
+                              <textarea
+                                value={editingPrompt.prompt_text}
+                                onChange={(e) => setEditingPrompt({
+                                  ...editingPrompt,
+                                  prompt_text: e.target.value
+                                })}
+                                rows={6}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                              />
+                              <div className="flex items-center space-x-4">
+                                <div className="flex items-center space-x-2">
+                                  <label>Версия:</label>
+                                  <input
+                                    type="number"
+                                    value={editingPrompt.version}
+                                    onChange={(e) => setEditingPrompt({
+                                      ...editingPrompt,
+                                      version: parseInt(e.target.value)
+                                    })}
+                                    className="w-20 border border-gray-300 rounded px-2 py-1"
+                                    min="1"
+                                  />
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingPrompt.is_active}
+                                    onChange={(e) => setEditingPrompt({
+                                      ...editingPrompt,
+                                      is_active: e.target.checked
+                                    })}
+                                  />
+                                  <label>Активный</label>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleUpdatePrompt(prompt.id, {
+                                    prompt_text: editingPrompt.prompt_text,
+                                    version: editingPrompt.version,
+                                    is_active: editingPrompt.is_active
+                                  })}
+                                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
+                                >
+                                  Сохранить
+                                </button>
+                                <button
+                                  onClick={() => setEditingPrompt(null)}
+                                  className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded"
+                                >
+                                  Отменить
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                {prompt.prompt_text.length > 200 
+                                  ? `${prompt.prompt_text.substring(0, 200)}...`
+                                  : prompt.prompt_text
+                                }
+                              </p>
+                              <div className="text-xs text-gray-500 mt-2">
+                                Создан: {formatDate(prompt.created_at)} • 
+                                Обновлен: {formatDate(prompt.updated_at)}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-600 text-sm">Нет промптов для этой модели</p>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
-      ) : !loading && (
+      ) : (
         <div className="text-center py-8 bg-gray-50 rounded-lg">
-          <p className="text-gray-600">Нет доступных моделей. Добавьте новую модель или создайте тестовую.</p>
+          <p className="text-gray-600">Нет доступных моделей. Добавьте новую модель.</p>
         </div>
       )}
 
-      {/* Модальное окно редактирования/добавления */}
+      {/* Модальное окно создания промпта */}
+      {showPromptModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold mb-4">Создать новый промпт</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Версия</label>
+                <input
+                  type="number"
+                  value={newPrompt.version}
+                  onChange={(e) => setNewPrompt({...newPrompt, version: parseInt(e.target.value)})}
+                  min="1"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">Текст промпта</label>
+                <textarea
+                  value={newPrompt.prompt_text}
+                  onChange={(e) => setNewPrompt({...newPrompt, prompt_text: e.target.value})}
+                  rows={10}
+                  placeholder="Введите системный промпт..."
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={newPrompt.is_active}
+                  onChange={(e) => setNewPrompt({...newPrompt, is_active: e.target.checked})}
+                />
+                <label>Активный</label>
+              </div>
+              
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleCreatePrompt} 
+                  disabled={!newPrompt.prompt_text}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg"
+                >
+                  Создать
+                </button>
+                <button 
+                  onClick={closeModal}
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+                >
+                  Отменить
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно редактирования/добавления модели */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -932,7 +1144,13 @@ export default function ModelsPage() {
                   type="text"
                   name="name"
                   value={isAddingNew ? newModel.name : selectedModel?.name || ''}
-                  onChange={isAddingNew ? handleNewModelChange : handleSelectedModelChange}
+                  onChange={(e) => {
+                    if (isAddingNew) {
+                      setNewModel({...newModel, name: e.target.value});
+                    } else if (selectedModel) {
+                      setSelectedModel({...selectedModel, name: e.target.value});
+                    }
+                  }}
                   className="w-full input"
                   placeholder="Введите имя модели"
                 />
@@ -945,7 +1163,13 @@ export default function ModelsPage() {
                 <textarea
                   name="bio"
                   value={isAddingNew ? newModel.bio : selectedModel?.bio || ''}
-                  onChange={isAddingNew ? handleNewModelChange : handleSelectedModelChange}
+                  onChange={(e) => {
+                    if (isAddingNew) {
+                      setNewModel({...newModel, bio: e.target.value});
+                    } else if (selectedModel) {
+                      setSelectedModel({...selectedModel, bio: e.target.value});
+                    }
+                  }}
                   className="w-full input min-h-[100px]"
                   placeholder="Введите описание модели"
                 />
@@ -958,7 +1182,13 @@ export default function ModelsPage() {
                 <select
                   name="gender"
                   value={isAddingNew ? newModel.gender : selectedModel?.gender || ''}
-                  onChange={isAddingNew ? handleNewModelChange : handleSelectedModelChange}
+                  onChange={(e) => {
+                    if (isAddingNew) {
+                      setNewModel({...newModel, gender: e.target.value as 'male' | 'female' | ''});
+                    } else if (selectedModel) {
+                      setSelectedModel({...selectedModel, gender: e.target.value as 'male' | 'female' | ''});
+                    }
+                  }}
                   className="w-full input"
                 >
                   <option value="">Выберите пол</option>
@@ -977,7 +1207,7 @@ export default function ModelsPage() {
                       type="radio"
                       value="file"
                       checked={uploadMethod === 'file'}
-                      onChange={() => setUploadMethod('file')}
+                      onChange={(e) => setUploadMethod('file')}
                       className="form-radio h-4 w-4 text-indigo-600"
                     />
                     <span className="ml-2">Загрузить файл</span>
@@ -987,7 +1217,7 @@ export default function ModelsPage() {
                       type="radio"
                       value="url"
                       checked={uploadMethod === 'url'}
-                      onChange={() => setUploadMethod('url')}
+                      onChange={(e) => setUploadMethod('url')}
                       className="form-radio h-4 w-4 text-indigo-600"
                     />
                     <span className="ml-2">Указать URL</span>
@@ -1056,7 +1286,13 @@ export default function ModelsPage() {
                     type="text"
                     name="avatar_url"
                     value={isAddingNew ? newModel.avatar_url : selectedModel?.avatar_url || ''}
-                    onChange={isAddingNew ? handleNewModelChange : handleSelectedModelChange}
+                    onChange={(e) => {
+                      if (isAddingNew) {
+                        setNewModel({...newModel, avatar_url: e.target.value});
+                      } else if (selectedModel) {
+                        setSelectedModel({...selectedModel, avatar_url: e.target.value});
+                      }
+                    }}
                     className="w-full input"
                     placeholder="https://example.com/avatar.jpg"
                   />
@@ -1079,40 +1315,6 @@ export default function ModelsPage() {
                 >
                   {fileUploading ? 'Загрузка...' : 'Сохранить'}
                 </button>
-                {selectedModel && !isAddingNew && (
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={async () => {
-                      try {
-                        const result = await ModelService.testUpdateModel(selectedModel.id);
-                        console.log('Тест обновления:', result);
-                        
-                        if (result.success) {
-                          alert(`Тест успешен: ${result.message}`);
-                          
-                          // Если тест успешен и данные вернулись, обновляем модель в интерфейсе
-                          if (result.data) {
-                            setModels(prevModels => prevModels.map(model => 
-                              model.id === selectedModel.id ? result.data as AIModel : model
-                            ));
-                          }
-                          
-                          // Перезагружаем список моделей
-                          closeModal();
-                        } else {
-                          setError(`Тест не пройден: ${result.message}`);
-                          console.error('Детали ошибки:', result.data);
-                        }
-                      } catch (err) {
-                        console.error('Ошибка при тестировании обновления:', err);
-                        setError(`Ошибка при тестировании: ${err instanceof Error ? err.message : 'Неизвестная ошибка'}`);
-                      }
-                    }}
-                  >
-                    Тест обновления
-                  </button>
-                )}
               </div>
             </div>
           </div>

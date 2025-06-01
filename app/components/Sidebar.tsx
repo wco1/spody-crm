@@ -32,7 +32,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
     },
     {
       href: '/models',
-      label: 'Модели ИИ',
+      label: 'Модели и промпты',
       icon: Bot,
       isActive: pathname === '/models'
     },

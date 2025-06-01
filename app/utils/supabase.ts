@@ -23,10 +23,10 @@ interface AIModel {
 }
 
 // Подключение к Supabase с использованием корректного API ключа
-const supabaseUrl = 'https://kulssuzzjwlyacqvawau.supabase.co';
+const supabaseUrl = 'https://avfdefowtxijmlvocodx.supabase.co';
 
 // Анонимный ключ (ограниченные права доступа)
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1bHNzdXp6andseWFjcXZhd2F1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU5MTg4MDIsImV4cCI6MjA2MTQ5NDgwMn0.pwiWgJY764y1f_4naIDwhUvr-dFAF-jFvkkJRN-TpVw';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZmRlZm93dHhpam1sdm9jb2R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDg0MDksImV4cCI6MjA2NDEyNDQwOX0.vPcqC3Dp3jAE7uhCz-NoLotRV0P02VtHKfP6KstAFTk';
 
 // Сервисный ключ (не включен по умолчанию - использовать только если нужен полный доступ к базе)
 // Внимание: этот ключ должен храниться в секрете и использоваться только для отладки
@@ -462,14 +462,14 @@ function getDefaultSettings(): Settings {
     timezone: 'UTC+3',
     enableLogging: true,
     openrouterKey: 'sk-or-v1-1234567890abcdef1234567890abcdef',
-    supabaseUrl: 'https://kulssuzzjwlyacqvawau.supabase.co',
+    supabaseUrl: 'https://avfdefowtxijmlvocodx.supabase.co',
     supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
     emailNotifications: true,
     newUserNotifications: true,
     errorNotifications: true,
     weeklyDigest: false,
     notificationEmail: 'admin@spody.app',
-    dbHost: 'kulssuzzjwlyacqvawau.supabase.co',
+    dbHost: 'avfdefowtxijmlvocodx.supabase.co',
     dbName: 'postgres',
     backupSchedule: 'weekly'
   };
