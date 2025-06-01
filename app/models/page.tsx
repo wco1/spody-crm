@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { getDatabaseInfo } from '../utils/supabase';
-import Image from 'next/image';
+import SafeImage from '../components/SafeImage';
 import ModelService, { AIModel } from '../utils/modelService';
 import AvatarService from '../utils/avatarService';
 import CleanupService from '../utils/cleanupService';
@@ -882,22 +882,12 @@ export default function ModelsPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className="relative h-16 w-16 rounded-full overflow-hidden bg-gray-100 border border-gray-200">
-                      <Image
-                        src={model.avatar_url || '/default-avatar.png'}
+                      <SafeImage
+                        src={model.avatar_url || '/default-avatar.svg'}
                         alt={model.name}
                         fill
                         sizes="64px"
                         className="object-cover"
-                        onError={(e) => {
-                          // Заменяем на default аватар при ошибке загрузки
-                          const target = e.target as HTMLImageElement;
-                          target.src = '/default-avatar.png';
-                          console.warn(`Ошибка загрузки аватара для модели ${model.name}: ${model.avatar_url}`);
-                        }}
-                        placeholder="blur"
-                        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
-                        priority={false}
-                        unoptimized={process.env.NODE_ENV === 'development'}
                       />
                     </div>
                     <div>
@@ -1261,7 +1251,7 @@ export default function ModelsPage() {
                     <div className="mt-3">
                       <p className="text-sm text-gray-600 mb-1">Предпросмотр:</p>
                       <div className="relative h-24 w-24 rounded-full overflow-hidden border border-gray-200">
-                        <Image
+                        <SafeImage
                           src={avatarPreview}
                           alt="Preview"
                           fill
