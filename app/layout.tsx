@@ -1,3 +1,5 @@
+// Development CRM Layout - версия для разработки
+// Последнее обновление: январь 2025
 import type { Metadata } from "next";
 import "./globals.css";
 
