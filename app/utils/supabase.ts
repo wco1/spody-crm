@@ -41,32 +41,36 @@ if (!serviceKey) {
 }
 
 // Создаем клиент Supabase с анонимным ключом по умолчанию
-export const supabase = (supabaseUrl && supabaseAnonKey) 
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+// Используем заглушки если переменные окружения отсутствуют
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder_anon_key'
+);
 
 // При необходимости можно использовать клиент с сервисным ключом 
 // (временное решение для отладки - не рекомендуется для продакшн)
-export const supabaseAdmin = (supabaseUrl && serviceKey) 
-  ? createClient(supabaseUrl, serviceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    })
-  : null;
+export const supabaseAdmin = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  serviceKey || 'placeholder_service_key',
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
 
 // Утилиты для безопасного использования клиентов
-export const withSupabase = <T>(operation: (client: NonNullable<typeof supabase>) => Promise<T>): Promise<T> => {
-  if (!supabase) {
-    throw new Error('Supabase client not initialized. Please check environment variables.');
+export const withSupabase = <T>(operation: (client: typeof supabase) => Promise<T>): Promise<T> => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Supabase configuration missing. Please check environment variables: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY');
   }
   return operation(supabase);
 };
 
-export const withSupabaseAdmin = <T>(operation: (client: NonNullable<typeof supabaseAdmin>) => Promise<T>): Promise<T> => {
-  if (!supabaseAdmin) {
-    throw new Error('Supabase admin client not initialized. Please check environment variables.');
+export const withSupabaseAdmin = <T>(operation: (client: typeof supabaseAdmin) => Promise<T>): Promise<T> => {
+  if (!supabaseUrl || !serviceKey) {
+    throw new Error('Supabase admin configuration missing. Please check environment variables: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_KEY');
   }
   return operation(supabaseAdmin);
 };
@@ -474,22 +478,22 @@ interface Settings {
 
 // Функция для получения настроек
 export async function getSettings() {
-  try {
-  const { data, error } = await supabase
-    .from('settings')
-    .select('*')
-    .single();
-  
-  if (error) {
-    console.error('Error fetching settings:', error);
+  return withSupabase(async (client) => {
+    const { data, error } = await client
+      .from('settings')
+      .select('*')
+      .single();
+    
+    if (error) {
+      console.error('Error fetching settings:', error);
       return getDefaultSettings();
-  }
-  
-  return data;
-  } catch (error) {
+    }
+    
+    return data;
+  }).catch((error) => {
     console.error('Unexpected error fetching settings:', error);
     return getDefaultSettings();
-  }
+  });
 }
 
 // Функция для получения моковых настроек в случае ошибки
@@ -516,23 +520,23 @@ function getDefaultSettings(): Settings {
 
 // Функция для сохранения настроек
 export async function saveSettings(settings: Settings) {
-  try {
-  const { data, error } = await supabase
-    .from('settings')
-    .upsert(settings)
-    .select()
-    .single();
-  
-  if (error) {
-    console.error('Error saving settings:', error);
-    return { success: false, error };
-  }
-  
-  return { success: true, data };
-  } catch (error) {
+  return withSupabase(async (client) => {
+    const { data, error } = await client
+      .from('settings')
+      .upsert(settings)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error saving settings:', error);
+      return { success: false, error };
+    }
+    
+    return { success: true, data };
+  }).catch((error) => {
     console.error('Unexpected error saving settings:', error);
     return { success: false, error };
-  }
+  });
 }
 
 // Функция для входа в систему через Supabase
@@ -540,50 +544,52 @@ export async function signIn(email: string, password: string) {
   console.log('Authenticating with Supabase:', { email });
   
   try {
-    // Сначала пробуем через Supabase
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
-  
-    if (!error) {
-      console.log('Successfully authenticated with Supabase');
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('authMethod', 'supabase');
-      localStorage.setItem('authUser', JSON.stringify({
-        id: data.user.id,
-        email: data.user.email,
-        role: data.user.role || 'user'
-      }));
-      return { success: true, user: data.user, session: data.session };
-    }
-    
-    console.error('Authentication error:', error);
-    
-    // Если Supabase выдал ошибку, проверяем локально для демонстрационных данных
-    if (email === 'admin@spody.app' && password === 'admin123') {
-      console.log('Using fallback auth for demo account');
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('authMethod', 'local');
-      localStorage.setItem('authUser', JSON.stringify({
-        id: '1', 
-        email: 'admin@spody.app', 
-        role: 'admin' 
-      }));
-      return { 
-        success: true, 
-        user: { 
+    return await withSupabase(async (client) => {
+      // Сначала пробуем через Supabase
+      const { data, error } = await client.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (!error) {
+        console.log('Successfully authenticated with Supabase');
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('authMethod', 'supabase');
+        localStorage.setItem('authUser', JSON.stringify({
+          id: data.user.id,
+          email: data.user.email,
+          role: data.user.role || 'user'
+        }));
+        return { success: true, user: data.user, session: data.session };
+      }
+      
+      console.error('Authentication error:', error);
+      
+      // Если Supabase выдал ошибку, проверяем локально для демонстрационных данных
+      if (email === 'admin@spody.app' && password === 'admin123') {
+        console.log('Using fallback auth for demo account');
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('authMethod', 'local');
+        localStorage.setItem('authUser', JSON.stringify({
           id: '1', 
           email: 'admin@spody.app', 
           role: 'admin' 
-        }, 
-        session: { 
-          access_token: 'mock_token' 
-        } 
-      };
-    }
-    
-    return { success: false, error };
+        }));
+        return { 
+          success: true, 
+          user: { 
+            id: '1', 
+            email: 'admin@spody.app', 
+            role: 'admin' 
+          }, 
+          session: { 
+            access_token: 'mock_token' 
+          } 
+        };
+      }
+      
+      return { success: false, error };
+    });
   } catch (error) {
     console.error('Unexpected auth error:', error);
     
@@ -617,17 +623,21 @@ export async function signIn(email: string, password: string) {
 // Функция для выхода из системы
 export async function signOut() {
   try {
-  const { error } = await supabase.auth.signOut();
+    await withSupabase(async (client) => {
+      const { error } = await client.auth.signOut();
+      
+      if (error) {
+        console.error('Error signing out:', error);
+        return { success: false, error };
+      }
+      return { success: true };
+    });
     
     // Очищаем локальное состояние авторизации
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('authMethod');
     localStorage.removeItem('authUser');
     
-    if (error) {
-      console.error('Error signing out:', error);
-      return { success: false, error };
-    }
     return { success: true };
   } catch (error) {
     console.error('Unexpected error signing out:', error);
@@ -663,10 +673,17 @@ export async function getCurrentUser() {
       
       // Если используется Supabase или метод не определен, проверяем через API
       if (authMethod === 'supabase' || !authMethod) {
-        const { data, error } = await supabase.auth.getUser();
-        
-        if (!error && data.user) {
-          return data.user;
+        try {
+          return await withSupabase(async (client) => {
+            const { data, error } = await client.auth.getUser();
+            
+            if (!error && data.user) {
+              return data.user;
+            }
+            return null;
+          });
+        } catch (supabaseError) {
+          console.log('Supabase auth check failed, trying localStorage fallback');
         }
         
         // Если сессия истекла, но есть флаг авторизации, пробуем локальные данные
@@ -718,12 +735,15 @@ export async function getCurrentUser() {
 export async function getAuthHeaders(): Promise<Record<string, string>> {
   try {
     // Попытка получить сессию из Supabase
-    const { data } = await supabase.auth.getSession();
+    const sessionData = await withSupabase(async (client) => {
+      const { data } = await client.auth.getSession();
+      return data;
+    }).catch(() => null);
     
-    if (data?.session?.access_token) {
+    if (sessionData?.session?.access_token) {
       // Если есть действительная сессия, возвращаем Authorization заголовок
       return {
-        'Authorization': `Bearer ${data.session.access_token}`
+        'Authorization': `Bearer ${sessionData.session.access_token}`
       };
     }
     
@@ -794,9 +814,19 @@ export async function getDatabaseInfo(skipTestInsert: boolean = true): Promise<D
     
     // Проверяем наличие и содержимое таблицы ai_models с обычным ключом
     console.log('Проверка доступа к таблице ai_models с анонимным ключом:');
-    const { data: aiModelsData, error: aiModelsError, count } = await supabase
-      .from('ai_models')
-      .select('*', { count: 'exact' });
+    
+    const modelsResult = await withSupabase(async (client) => {
+      const { data: aiModelsData, error: aiModelsError, count } = await client
+        .from('ai_models')
+        .select('*', { count: 'exact' });
+      
+      return { data: aiModelsData, error: aiModelsError, count };
+    }).catch((error) => {
+      console.error('Error accessing ai_models table:', error);
+      return { data: null, error, count: 0 };
+    });
+    
+    const { data: aiModelsData, error: aiModelsError, count } = modelsResult;
       
     if (aiModelsError) {
       console.error('Ошибка доступа к таблице ai_models с анонимным ключом:', aiModelsError);
@@ -815,7 +845,7 @@ export async function getDatabaseInfo(skipTestInsert: boolean = true): Promise<D
     let testInsertResult = { success: false, message: 'Тест вставки пропущен' };
     if (!skipTestInsert) {
       console.log('Проверка возможности добавления записи в таблицу ai_models с анонимным ключом:');
-      testInsertResult = await testInsertRecord(supabase);
+      testInsertResult = await testInsertRecord();
       console.log('Результат проверки вставки:', testInsertResult.success ? 'Успех' : 'Ошибка', testInsertResult.message || '');
     } else {
       console.log('Тест вставки записи пропущен для предотвращения автоматического создания моделей');
@@ -835,8 +865,8 @@ export async function getDatabaseInfo(skipTestInsert: boolean = true): Promise<D
 }
 
 // Вспомогательная функция для проверки возможности вставки записи
-async function testInsertRecord(client: typeof supabase) {
-  try {
+async function testInsertRecord() {
+  return withSupabase(async (client) => {
     let createdRecordId = null;
     
     try {
@@ -950,14 +980,14 @@ async function testInsertRecord(client: typeof supabase) {
         }
       }
     }
-  } catch (error: unknown) {
+  }).catch((error: unknown) => {
     const err = error instanceof Error ? error : new Error(String(error));
     return { 
       success: false, 
       message: `Ошибка при тестировании вставки: ${err.message}`,
       error: err
     };
-  }
+  });
 }
 
 /**
@@ -965,9 +995,9 @@ async function testInsertRecord(client: typeof supabase) {
  * Эта функция будет выполняться от имени администратора, обходя RLS
  */
 export async function createDeleteModelFunction() {
-  try {
+  return withSupabase(async (client) => {
     // Создаем функцию для удаления модели (security definer позволяет обойти RLS)
-    const { error } = await supabase.rpc('execute_sql', { 
+    const { error } = await client.rpc('execute_sql', { 
       sql_query: `
         CREATE OR REPLACE FUNCTION public.delete_model(model_id UUID)
         RETURNS BOOLEAN
@@ -1001,8 +1031,8 @@ export async function createDeleteModelFunction() {
     
     console.log('Хранимая процедура для удаления моделей успешно создана');
     return true;
-  } catch (err) {
+  }).catch((err) => {
     console.error('Непредвиденная ошибка при создании хранимой процедуры:', err);
     return false;
-  }
+  });
 } 
