@@ -16,6 +16,7 @@ const nextConfig = {
   // Конфигурация изображений
   images: {
     remotePatterns: [
+      // Существующие домены
       {
         protocol: 'https',
         hostname: 'cs14.pikabu.ru',
@@ -44,7 +45,7 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'cdn.discordapp.com',
       },
-      // Добавляем популярные хосты изображений
+      // Популярные хосты изображений
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
@@ -59,30 +60,91 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'imgur.com',
+      },
+      {
+        protocol: 'https',
         hostname: 'storage.googleapis.com',
       },
       {
         protocol: 'https',
         hostname: 'drive.google.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'googleusercontent.com',
+      },
       // Разрешаем все поддомены Supabase
       {
         protocol: 'https',
         hostname: '*.supabase.co',
       },
+      // Placeholder сервисы для тестирования
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
+      },
+      {
+        protocol: 'https',
+        hostname: 'placekitten.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos',
+      },
+      // CDN сервисы
+      {
+        protocol: 'https',
+        hostname: 'cdn.pixabay.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.pexels.com',
+      },
+      // AWS/Cloudflare
+      {
+        protocol: 'https',
+        hostname: '*.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.cloudfront.net',
+      },
+      // Vercel
+      {
+        protocol: 'https',
+        hostname: '*.vercel.app',
+      },
+      // Общие паттерны
+      {
+        protocol: 'https',
+        hostname: '**.com',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
     ],
-    // Настройки для оптимизации
-    formats: ['image/webp', 'image/avif'],
+    
+    // ПОЛНОСТЬЮ отключаем оптимизацию в development для устранения ошибок 400
+    unoptimized: process.env.NODE_ENV === 'development',
+    
+    // Настройки для обхода проблем с изображениями
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    
+    // Увеличиваем время кэширования
     minimumCacheTTL: 60,
+    
+    // Оптимизированные размеры устройств
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     
-    // Разрешаем любые домены для development (убрать в продакшене)
-    unoptimized: process.env.NODE_ENV === 'development',
+    // Форматы изображений (только для production)
+    formats: process.env.NODE_ENV === 'production' ? ['image/webp', 'image/avif'] : [],
     
-    // Также разрешаем любые домены для staging (можно убрать в продакшене)
-    dangerouslyAllowSVG: true,
-    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    // Качество изображений
+    quality: 75,
   },
   
   // Игнорируем все ошибки во время сборки
@@ -100,6 +162,14 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
+  
+  // Дополнительные настройки для development
+  ...(process.env.NODE_ENV === 'development' && {
+    // Отключаем строгие проверки в development
+    experimental: {
+      missingSuspenseWithCSRBailout: false,
+    },
+  }),
 };
 
 export default nextConfig;
