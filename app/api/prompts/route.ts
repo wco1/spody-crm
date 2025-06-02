@@ -16,7 +16,8 @@ export async function GET() {
           traits,
           genres,
           gender,
-          is_active
+          is_active,
+          character_id
         )
       `)
       .order('created_at', { ascending: false });
@@ -43,7 +44,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { model_id, prompt_text, version, is_active } = body;
+    const { model_id, prompt_text, version, is_active, openrouter_model } = body;
 
     if (!model_id || !prompt_text) {
       return NextResponse.json(
@@ -58,7 +59,8 @@ export async function POST(request: NextRequest) {
         model_id,
         prompt_text,
         version: version || 1,
-        is_active: is_active !== undefined ? is_active : true
+        is_active: is_active !== undefined ? is_active : true,
+        openrouter_model: openrouter_model || 'mistralai/mistral-medium-3'
       }])
       .select(`
         *,
@@ -70,7 +72,8 @@ export async function POST(request: NextRequest) {
           traits,
           genres,
           gender,
-          is_active
+          is_active,
+          character_id
         )
       `)
       .single();

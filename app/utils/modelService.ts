@@ -9,6 +9,7 @@ export interface AIModel {
   traits: string[];
   genres: string[];
   gender?: 'male' | 'female' | '';
+  character_id?: string;
   created_at: string;
   updated_at?: string;
   user_id?: string;
@@ -21,6 +22,7 @@ export interface ModelCreateInput {
   traits?: string[];
   genres?: string[];
   gender?: 'male' | 'female' | '';
+  character_id?: string;
 }
 
 export interface ModelUpdateInput {
@@ -30,6 +32,7 @@ export interface ModelUpdateInput {
   traits?: string[];
   genres?: string[];
   gender?: 'male' | 'female' | '';
+  character_id?: string;
 }
 
 // Класс для работы с моделями
@@ -103,7 +106,8 @@ export class ModelService {
           avatar_url: model.avatar_url || '',
           traits: model.traits || [],
           genres: model.genres || [],
-          gender: model.gender || 'female'
+          gender: model.gender || 'female',
+          character_id: model.character_id || null
         }])
         .select();
       
