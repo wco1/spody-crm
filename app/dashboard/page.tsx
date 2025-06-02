@@ -94,14 +94,6 @@ export default function Dashboard() {
       try {
         console.log('🔄 Загрузка данных дашборда...');
         
-        // Проверяем переменные окружения
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-        
-        if (!supabaseUrl || !supabaseAnonKey) {
-          throw new Error('Переменные окружения Supabase не настроены. Проверьте NEXT_PUBLIC_SUPABASE_URL и NEXT_PUBLIC_SUPABASE_ANON_KEY');
-        }
-
         // Получаем дату 30 дней назад для более широкого анализа
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);

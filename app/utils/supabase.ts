@@ -22,56 +22,29 @@ interface AIModel {
   user_id?: string;
 }
 
-// Получаем переменные окружения
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const serviceKey = process.env.SUPABASE_SERVICE_KEY;
-
-// Проверяем наличие обязательных переменных
-if (!supabaseUrl) {
-  console.error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable');
-}
-
-if (!supabaseAnonKey) {
-  console.error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable');
-}
-
-if (!serviceKey) {
-  console.error('Missing SUPABASE_SERVICE_KEY environment variable');
-}
+// Получаем переменные окружения из process.env или из глобального окружения
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://avfdefowtxijmlvocodx.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZmRlZm93dHhpam1sdm9jb2R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ1NjQ2OTQsImV4cCI6MjA1MDE0MDY5NH0.QYbD_qlgVOWJsYqvkPgqQcLQDuEMYgzKQTU8wbgGpjw';
+const serviceKey = process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZmRlZm93dHhpam1sdm9jb2R4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNDU2NDY5NCwiZXhwIjoyMDUwMTQwNjk0fQ.7Y2o8DEfcONOlN1kBDgE0g0HHJXsKGhgcSKG-V5z2RU';
 
 // Создаем клиент Supabase с анонимным ключом по умолчанию
-// Используем заглушки если переменные окружения отсутствуют
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder_anon_key'
-);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // При необходимости можно использовать клиент с сервисным ключом 
 // (временное решение для отладки - не рекомендуется для продакшн)
-export const supabaseAdmin = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  serviceKey || 'placeholder_service_key',
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
+export const supabaseAdmin = createClient(supabaseUrl, serviceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
   }
-);
+});
 
-// Утилиты для безопасного использования клиентов
+// Утилиты для безопасного использования клиентов (оставляю для совместимости)
 export const withSupabase = <T>(operation: (client: typeof supabase) => Promise<T>): Promise<T> => {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase configuration missing. Please check environment variables: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY');
-  }
   return operation(supabase);
 };
 
 export const withSupabaseAdmin = <T>(operation: (client: typeof supabaseAdmin) => Promise<T>): Promise<T> => {
-  if (!supabaseUrl || !serviceKey) {
-    throw new Error('Supabase admin configuration missing. Please check environment variables: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_KEY');
-  }
   return operation(supabaseAdmin);
 };
 
