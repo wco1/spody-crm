@@ -77,8 +77,8 @@ const nextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     
-    // Разрешаем любые домены для development (убрать в продакшене)
-    unoptimized: process.env.NODE_ENV === 'development',
+    // Разрешаем любые домены для development и staging
+    unoptimized: process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'preview',
     
     // Также разрешаем любые домены для staging (можно убрать в продакшене)
     dangerouslyAllowSVG: true,
