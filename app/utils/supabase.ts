@@ -24,8 +24,8 @@ interface AIModel {
 
 // Получаем переменные окружения из process.env или из глобального окружения
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://avfdefowtxijmlvocodx.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1bHNzdXp6andseWFjcXZhd2F1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU5MTg4MDIsImV4cCI6MjA2MTQ5NDgwMn0.pwiWgJY764y1f_4naIDwhUvr-dFAF-jFvkkJRN-TpVw';
-const serviceKey = process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1bHNzdXp6andseWFjcXZhd2F1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTkxODgwMiwiZXhwIjoyMDYxNDk0ODAyfQ.z5xZN5bY-e3z79EoZeAe1-KKNNGd4z8pCPL3Zi7kBXE';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZmRlZm93dHhpam1sdm9jb2R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NDg0MDksImV4cCI6MjA2NDEyNDQwOX0.vPcqC3Dp3jAE7uhCz-NoLotRV0P02VtHKfP6KstAFTk';
+const serviceKey = process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZmRlZm93dHhpam1sdm9jb2R4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODU0ODQwOSwiZXhwIjoyMDY0MTI0NDA5fQ.ePgjFJgQFTkNuxDDYIrozfhV5SMdIAri8-nuZ3mMT5w';
 
 // Создаем клиент Supabase с анонимным ключом по умолчанию
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
