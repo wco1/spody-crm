@@ -164,7 +164,7 @@ export default function Dashboard() {
         */
         conversationsError = { message: 'Таблица временно отключена' };
         
-        console.log('💬 Беседы:', conversationsError ? `Ошибка: ${conversationsError.message}` : `Загружено: ${conversationsData?.length || 0}`);
+        console.log('💬 Беседы:', conversationsError ? `Ошибка: ${conversationsError.message}` : `Загружено: 0`);
 
         // Получаем данные чатов для дополнительной статистики - опциональный запрос
         let chatsData = null;
@@ -200,7 +200,7 @@ export default function Dashboard() {
         // Формируем реальные данные активности сообщений на основе chat_messages
         const totalChatMessages = chatMessagesData?.length || 0;
         const totalUserMessages = userMessages.length;
-        const totalConversations = conversationsData?.length || 0;
+        const totalConversations = 0; // conversationsData?.length || 0;
         const totalChats = chatsData?.length || 0;
         const totalUsers = allProfilesData?.length || 0;
         
