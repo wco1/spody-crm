@@ -146,8 +146,10 @@ export default function Dashboard() {
         console.log('👤 Пользовательские сообщения:', userMessages.length);
 
         // Получаем данные бесед (если есть) - опциональный запрос
-        let conversationsData = null;
+        let conversationsData: any[] | null = null;
         let conversationsError = null;
+        // Временно отключено до создания таблицы в staging
+        /* 
         try {
           const conversationsResult = await supabase
           .from('conversations')
@@ -159,6 +161,8 @@ export default function Dashboard() {
           console.log('⚠️ Таблица conversations недоступна (возможно не создана в staging)');
           conversationsError = { message: 'Таблица не найдена' };
         }
+        */
+        conversationsError = { message: 'Таблица временно отключена' };
         
         console.log('💬 Беседы:', conversationsError ? `Ошибка: ${conversationsError.message}` : `Загружено: ${conversationsData?.length || 0}`);
 
