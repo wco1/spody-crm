@@ -23,7 +23,7 @@ interface AIModel {
 }
 
 // Получаем переменные окружения из process.env или из глобального окружения
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://kulssuzzjwlyacqvawau.supabase.co';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://avfdefowtxijmlvocodx.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1bHNzdXp6andseWFjcXZhd2F1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU5MTg4MDIsImV4cCI6MjA2MTQ5NDgwMn0.pwiWgJY764y1f_4naIDwhUvr-dFAF-jFvkkJRN-TpVw';
 const serviceKey = process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1bHNzdXp6andseWFjcXZhd2F1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTkxODgwMiwiZXhwIjoyMDYxNDk0ODAyfQ.z5xZN5bY-e3z79EoZeAe1-KKNNGd4z8pCPL3Zi7kBXE';
 
@@ -478,14 +478,14 @@ function getDefaultSettings(): Settings {
     timezone: 'UTC+3',
     enableLogging: true,
     openrouterKey: 'sk-or-v1-1234567890abcdef1234567890abcdef',
-    supabaseUrl: 'https://kulssuzzjwlyacqvawau.supabase.co',
+    supabaseUrl: 'https://avfdefowtxijmlvocodx.supabase.co',
     supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
     emailNotifications: true,
     newUserNotifications: true,
     errorNotifications: true,
     weeklyDigest: false,
     notificationEmail: 'admin@spody.app',
-    dbHost: 'kulssuzzjwlyacqvawau.supabase.co',
+    dbHost: 'avfdefowtxijmlvocodx.supabase.co',
     dbName: 'postgres',
     backupSchedule: 'weekly'
   };
