@@ -88,10 +88,15 @@ export default function Dashboard() {
   // Загрузка данных из Supabase
   useEffect(() => {
     async function fetchDashboardData() {
+      setLoading(true);
+      setError(null);
+      
       try {
-        setLoading(true);
-        
-        console.log('🔄 Загрузка реальных данных из Supabase...');
+        if (!supabase) {
+          throw new Error('Подключение к базе данных недоступно. Проверьте настройки.');
+        }
+
+        console.log('🔄 Загрузка данных дашборда...');
         
         // Получаем дату 30 дней назад для более широкого анализа
         const thirtyDaysAgo = new Date();

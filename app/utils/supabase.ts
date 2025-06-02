@@ -56,6 +56,21 @@ export const supabaseAdmin = (supabaseUrl && serviceKey)
     })
   : null;
 
+// Утилиты для безопасного использования клиентов
+export const withSupabase = <T>(operation: (client: NonNullable<typeof supabase>) => Promise<T>): Promise<T> => {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized. Please check environment variables.');
+  }
+  return operation(supabase);
+};
+
+export const withSupabaseAdmin = <T>(operation: (client: NonNullable<typeof supabaseAdmin>) => Promise<T>): Promise<T> => {
+  if (!supabaseAdmin) {
+    throw new Error('Supabase admin client not initialized. Please check environment variables.');
+  }
+  return operation(supabaseAdmin);
+};
+
 // Константа для имени bucket'а для аватаров моделей
 export const AVATARS_BUCKET = 'ai-models-avatars';
 
@@ -326,40 +341,42 @@ export async function uploadAvatarAndUpdateModel(file: File, modelId: string): P
  */
 export async function uploadAvatarFile(file: File, filename?: string): Promise<{ success: boolean; url?: string; error?: Error | unknown }> {
   try {
-    // Создаем уникальное имя файла, если не предоставлено
-    const uniqueFileName = filename || `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
-    
-    console.log(`Uploading file ${uniqueFileName} to bucket ${AVATARS_BUCKET}...`);
-    console.log(`File info: type=${file.type}, size=${Math.round(file.size / 1024)}KB`);
-    
-    // Загружаем файл в public директорию bucket'а
-    const { data, error } = await supabase
-      .storage
-      .from(AVATARS_BUCKET)
-      .upload(`public/${uniqueFileName}`, file, {
-        cacheControl: '3600',
-        upsert: true,
-        contentType: file.type // Явно указываем тип контента
-      });
-    
-    if (error) {
-      console.error('Error uploading file:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
-      return { success: false, error };
-    }
-    
-    // Получаем публичный URL загруженного файла
-    const { data: urlData } = supabase
-      .storage
-      .from(AVATARS_BUCKET)
-      .getPublicUrl(`public/${data.path}`);
-    
-    console.log(`File uploaded successfully. Public URL: ${urlData.publicUrl}`);
-    
-    return { 
-      success: true, 
-      url: urlData.publicUrl 
-    };
+    return await withSupabase(async (supabaseClient) => {
+      // Создаем уникальное имя файла, если не предоставлено
+      const uniqueFileName = filename || `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+      
+      console.log(`Uploading file ${uniqueFileName} to bucket ${AVATARS_BUCKET}...`);
+      console.log(`File info: type=${file.type}, size=${Math.round(file.size / 1024)}KB`);
+      
+      // Загружаем файл в public директорию bucket'а
+      const { data, error } = await supabaseClient
+        .storage
+        .from(AVATARS_BUCKET)
+        .upload(`public/${uniqueFileName}`, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type // Явно указываем тип контента
+        });
+      
+      if (error) {
+        console.error('Error uploading file:', error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        return { success: false, error };
+      }
+      
+      // Получаем публичный URL загруженного файла
+      const { data: urlData } = supabaseClient
+        .storage
+        .from(AVATARS_BUCKET)
+        .getPublicUrl(`public/${data.path}`);
+      
+      console.log(`File uploaded successfully. Public URL: ${urlData.publicUrl}`);
+      
+      return { 
+        success: true, 
+        url: urlData.publicUrl 
+      };
+    });
   } catch (error) {
     console.error('Unexpected error during file upload:', error);
     if (error instanceof Error) {
@@ -406,25 +423,27 @@ export async function getModelAvatar(modelId: string, gender: string = 'default'
   }
   
   try {
-    // Если в кэше нет, получаем из базы данных
-    const { data, error } = await supabase
-      .from('ai_models')
-      .select('avatar_url')
-      .eq('id', modelId)
-      .single();
-    
-    if (error) {
-      throw error;
-    }
-    
-    if (data && data.avatar_url) {
-      // Сохраняем в кэш и возвращаем
-      avatarCache[modelId] = data.avatar_url;
-      return data.avatar_url;
-    }
-    
-    // Если аватара нет, используем резервный
-    return FALLBACK_AVATARS[gender as keyof typeof FALLBACK_AVATARS] || FALLBACK_AVATARS.default;
+    return await withSupabase(async (supabaseClient) => {
+      // Если в кэше нет, получаем из базы данных
+      const { data, error } = await supabaseClient
+        .from('ai_models')
+        .select('avatar_url')
+        .eq('id', modelId)
+        .single();
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data && data.avatar_url) {
+        // Сохраняем в кэш и возвращаем
+        avatarCache[modelId] = data.avatar_url;
+        return data.avatar_url;
+      }
+      
+      // Если аватара нет, используем резервный
+      return FALLBACK_AVATARS[gender as keyof typeof FALLBACK_AVATARS] || FALLBACK_AVATARS.default;
+    });
   } catch (error) {
     console.error(`Error getting avatar for model ${modelId}:`, error);
     // При ошибке используем резервный аватар

@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin, getAuthHeaders } from './supabase';
+import { supabase, supabaseAdmin, getAuthHeaders, withSupabaseAdmin, withSupabase } from './supabase';
 import AvatarService from './avatarService';
 
 export interface AIModel {
@@ -38,16 +38,11 @@ export class ModelService {
    * Получает все модели из базы данных
    */
   static async getAllModels(): Promise<AIModel[]> {
-    if (!supabaseAdmin) {
-      console.error('Supabase admin client not initialized');
-      throw new Error('Database connection not available');
-    }
-
-    try {
+    return withSupabaseAdmin(async (client) => {
       console.log('Getting all models using admin client...');
 
       // Используем административный клиент для операций CRM
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await client
         .from('ai_models')
         .select('*')
         .order('created_at', { ascending: false });
@@ -58,10 +53,7 @@ export class ModelService {
       }
       
       return data || [];
-    } catch (err) {
-      console.error('Error in getAllModels:', err);
-      throw err;
-    }
+    });
   }
   
   /**
@@ -69,15 +61,10 @@ export class ModelService {
    * @param id ID модели
    */
   static async getModelById(id: string): Promise<AIModel | null> {
-    if (!supabaseAdmin) {
-      console.error('Supabase admin client not initialized');
-      return null;
-    }
-
-    try {
+    return withSupabaseAdmin(async (client) => {
       console.log(`Getting model ${id} using admin client...`);
 
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await client
         .from('ai_models')
         .select('*')
         .eq('id', id)
@@ -89,10 +76,10 @@ export class ModelService {
       }
       
       return data;
-    } catch (err) {
+    }).catch((err) => {
       console.error(`Error in getModelById for ${id}:`, err);
       return null;
-    }
+    });
   }
   
   /**
@@ -100,12 +87,7 @@ export class ModelService {
    * @param model Данные модели
    */
   static async createModel(model: ModelCreateInput): Promise<AIModel | null> {
-    if (!supabaseAdmin) {
-      console.error('Supabase admin client not initialized');
-      throw new Error('Database connection not available');
-    }
-
-    try {
+    return withSupabaseAdmin(async (client) => {
       // Проверяем обязательные поля
       if (!model.name.trim()) {
         throw new Error('Model name is required');
@@ -113,7 +95,7 @@ export class ModelService {
       
       console.log('Creating model using admin client:', model.name);
       
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await client
         .from('ai_models')
         .insert([{
           name: model.name.trim(),
@@ -131,10 +113,7 @@ export class ModelService {
       }
       
       return data?.[0] || null;
-    } catch (err) {
-      console.error('Error in createModel:', err);
-      throw err;
-    }
+    });
   }
   
   /**
@@ -143,12 +122,7 @@ export class ModelService {
    * @param updates Обновляемые поля
    */
   static async updateModel(id: string, updates: ModelUpdateInput): Promise<AIModel | null> {
-    if (!supabaseAdmin) {
-      console.error('Supabase admin client not initialized');
-      throw new Error('Database connection not available');
-    }
-
-    try {
+    return withSupabaseAdmin(async (client) => {
       console.log(`Updating model ${id} with admin client:`, JSON.stringify(updates, null, 2));
       
       // Если обновляется имя, проверяем что оно не пустое
@@ -161,7 +135,7 @@ export class ModelService {
         updated_at: new Date()
       };
       
-      const response = await supabaseAdmin
+      const response = await client
         .from('ai_models')
         .update(updateData)
         .eq('id', id)
@@ -211,11 +185,7 @@ export class ModelService {
       }
       
       return response.data?.[0] || null;
-    } catch (err) {
-      console.error(`Error in updateModel for ${id}:`, err);
-      console.error('Stack trace:', err instanceof Error ? err.stack : 'No stack trace');
-      throw err;
-    }
+    });
   }
   
   /**
@@ -223,11 +193,11 @@ export class ModelService {
    * @param id ID модели для удаления
    */
   static async deleteModel(id: string): Promise<boolean> {
-    try {
+    return withSupabaseAdmin(async (client) => {
       console.log(`Attempting to delete model ${id} using admin client...`);
       
       // Используем административный клиент
-      let { error } = await supabaseAdmin
+      let { error } = await client
         .from('ai_models')
         .delete()
         .eq('id', id);
@@ -240,13 +210,13 @@ export class ModelService {
         
         try {
           // Создаем хранимую процедуру для удаления (если её еще нет)
-          await supabaseAdmin.rpc('create_delete_model_function');
+          await client.rpc('create_delete_model_function');
         } catch (procCreateErr) {
           console.log('Хранимая процедура уже существует или создана, продолжаем...');
         }
         
         // Пробуем удалить через хранимую процедуру
-        const result = await supabaseAdmin.rpc('delete_model', { model_id: id });
+        const result = await client.rpc('delete_model', { model_id: id });
           
         error = result.error;
         
@@ -261,10 +231,7 @@ export class ModelService {
       
       console.log(`Модель ${id} успешно удалена`);
       return true;
-    } catch (err) {
-      console.error(`Error in deleteModel for ${id}:`, err);
-      throw err;
-    }
+    });
   }
   
   /**
@@ -350,7 +317,7 @@ export class ModelService {
    * Создает тестовую модель
    */
   static async createTestModel(): Promise<AIModel | null> {
-    try {
+    return withSupabase(async (client) => {
       // Создаем уникальное имя с точной датой и временем
       const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '').substring(0, 15);
       const testModel: ModelCreateInput = {
@@ -365,7 +332,7 @@ export class ModelService {
       
       // Проверяем, есть ли у нас нужные колонки в таблице
       try {
-        const { error: schemaError } = await supabase
+        const { error: schemaError } = await client
           .from('ai_models')
           .select('id')
           .limit(1);
@@ -386,10 +353,7 @@ export class ModelService {
       }
       
       return await this.createModel(testModel);
-    } catch (err: unknown) {
-      console.error('Ошибка создания тестовой модели:', err);
-      throw err; 
-    }
+    });
   }
   
   /**
@@ -397,11 +361,11 @@ export class ModelService {
    * @returns Количество удаленных тестовых моделей
    */
   static async cleanupTestModels(): Promise<number> {
-    try {
+    return withSupabaseAdmin(async (client) => {
       console.log('Cleaning up test models using admin client...');
       
       // Сначала получаем все тестовые модели
-      const { data: testModels, error: fetchError } = await supabaseAdmin
+      const { data: testModels, error: fetchError } = await client
         .from('ai_models')
         .select('id, name')
         .like('name', '_test_%');
@@ -420,7 +384,7 @@ export class ModelService {
         testModels.map(m => m.name).join(', '));
       
       // Удаляем все тестовые модели одним запросом
-      const { error: deleteError } = await supabaseAdmin
+      const { error: deleteError } = await client
         .from('ai_models')
         .delete()
         .like('name', '_test_%');
@@ -440,8 +404,8 @@ export class ModelService {
           }
         }
         return deletedCount;
-          }
-          
+      }
+        
       // Очищаем кэш аватаров для всех удаленных моделей
       testModels.forEach(model => {
         AvatarService.clearCache(model.id);
@@ -449,10 +413,7 @@ export class ModelService {
         
       console.log(`Успешно удалено ${testModels.length} тестовых моделей`);
       return testModels.length;
-    } catch (err: unknown) {
-      console.error('Ошибка очистки тестовых моделей:', err);
-      throw err;
-    }
+    });
   }
 
   // Добавляем функцию для тестирования обновления модели
@@ -480,71 +441,72 @@ export class ModelService {
       
       console.log('Sending test update:', testUpdate);
       
-      // Для авторизации напрямую используем токен
-      const client = supabase;
-      if (authHeaders.Authorization) {
-        client.auth.setSession({
-          access_token: authHeaders.Authorization.replace('Bearer ', ''),
-          refresh_token: ''
-        });
-        console.log('Auth session set for test update');
-      }
-      
-      // Отправляем запрос на обновление
-      const response = await client
-        .from('ai_models')
-        .update(testUpdate)
-        .eq('id', id)
-        .select();
-      
-      console.log('Update response:', response);
-      
-      if (response.error) {
-        return { 
-          success: false, 
-          message: `Ошибка обновления: ${response.error.message}`,
-          data: response 
-        };
-      }
-      
-      // Проверяем, что данные вернулись
-      if (!response.data || response.data.length === 0) {
-        // Попробуем получить данные после обновления отдельным запросом
-        const { data: verifyData, error: verifyError } = await client
-          .from('ai_models')
-          .select('*')
-          .eq('id', id)
-          .single();
+      return withSupabase(async (client) => {
+        // Для авторизации напрямую используем токен
+        if (authHeaders.Authorization) {
+          client.auth.setSession({
+            access_token: authHeaders.Authorization.replace('Bearer ', ''),
+            refresh_token: ''
+          });
+          console.log('Auth session set for test update');
+        }
         
-        if (verifyError) {
+        // Отправляем запрос на обновление
+        const response = await client
+          .from('ai_models')
+          .update(testUpdate)
+          .eq('id', id)
+          .select();
+        
+        console.log('Update response:', response);
+        
+        if (response.error) {
           return { 
             success: false, 
-            message: 'Обновление, возможно, выполнено, но данные не возвращены. Проверка также не удалась.',
-            data: { response, verifyError }
+            message: `Ошибка обновления: ${response.error.message}`,
+            data: response 
           };
         }
         
-        // Проверяем, содержит ли полученная модель наши обновления
-        if (verifyData && verifyData.name === testUpdate.name) {
+        // Проверяем, что данные вернулись
+        if (!response.data || response.data.length === 0) {
+          // Попробуем получить данные после обновления отдельным запросом
+          const { data: verifyData, error: verifyError } = await client
+            .from('ai_models')
+            .select('*')
+            .eq('id', id)
+            .single();
+          
+          if (verifyError) {
+            return { 
+              success: false, 
+              message: 'Обновление, возможно, выполнено, но данные не возвращены. Проверка также не удалась.',
+              data: { response, verifyError }
+            };
+          }
+          
+          // Проверяем, содержит ли полученная модель наши обновления
+          if (verifyData && verifyData.name === testUpdate.name) {
+            return { 
+              success: true, 
+              message: 'Обновление выполнено, но Supabase не вернул данные в update. Данные восстановлены отдельным запросом.',
+              data: verifyData
+            };
+          }
+          
           return { 
-            success: true, 
-            message: 'Обновление выполнено, но Supabase не вернул данные в update. Данные восстановлены отдельным запросом.',
-            data: verifyData
+            success: false, 
+            message: 'Обновление не применилось. Данные не изменились.',
+            data: { response, verifyData }
           };
         }
         
         return { 
-          success: false, 
-          message: 'Обновление не применилось. Данные не изменились.',
-          data: { response, verifyData }
+          success: true, 
+          message: 'Тестовое обновление выполнено успешно',
+          data: response.data[0]
         };
-      }
-      
-      return { 
-        success: true, 
-        message: 'Тестовое обновление выполнено успешно',
-        data: response.data[0]
-      };
+      });
     } catch (err) {
       console.error('Error in testUpdateModel:', err);
       return { 
