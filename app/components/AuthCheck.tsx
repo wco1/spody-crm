@@ -18,33 +18,28 @@ export default function AuthCheck({ children }: AuthCheckProps) {
     async function checkAuth() {
       try {
         console.log('Checking authentication status...');
-        
-        // Проверяем авторизацию через getCurrentUser, которая уже включает гибридную проверку
         const user = await getCurrentUser();
+        
         console.log('Auth check result:', user ? `User found: ${user.email}` : 'No authenticated user found');
         
         if (user) {
-          // Пользователь авторизован (через Supabase или локальный fallback)
           console.log('User is authenticated, showing protected content');
           
-          // Устанавливаем заголовок авторизации для будущих запросов
+          // Устанавливаем заголовки для последующих API запросов
           const setAuthHeader = async () => {
             try {
-              // Попытка получить сессию из Supabase
               const { data: { session } } = await supabase.auth.getSession();
               
               if (session?.access_token) {
-                // Если есть токен, устанавливаем его в локальное хранилище
                 localStorage.setItem('supabase.auth.token', session.access_token);
                 console.log('Auth token set for API requests');
               } else if (localStorage.getItem('authMethod') === 'local') {
-                // Если используется локальная авторизация, устанавливаем демо-токен
+                // Для локальной авторизации используем демо-токен
                 localStorage.setItem('supabase.auth.token', 'demo_token_for_local_auth');
                 console.log('Demo auth token set for local authentication');
               }
             } catch (err) {
-              console.error('Error setting auth header:', err);
-              // Если произошла ошибка, но есть локальная авторизация
+              // Тихо устанавливаем демо-токен при ошибке
               if (localStorage.getItem('authMethod') === 'local') {
                 localStorage.setItem('supabase.auth.token', 'demo_token_for_local_auth');
                 console.log('Demo auth token set after error');
@@ -55,31 +50,27 @@ export default function AuthCheck({ children }: AuthCheckProps) {
           await setAuthHeader();
           setIsAuthenticated(true);
         } else {
-          // Если пользователь не авторизован, перенаправляем на страницу входа
           console.log('User is not authenticated, redirecting to login');
           router.push('/auth/login');
         }
       } catch (error) {
-        console.error('Error in AuthCheck:', error);
-        
-        // При непредвиденной ошибке проверяем localStorage как запасной вариант
-        const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-        if (isLoggedIn) {
+        // Обрабатываем ошибки проверки аутентификации тихо если есть локальная сессия
+        if (localStorage.getItem('isLoggedIn') === 'true') {
           console.log('Auth error occurred but found login state in localStorage, showing content');
           
-          // Устанавливаем демо-токен для запросов API
+          // Установить демо-токен
           localStorage.setItem('supabase.auth.token', 'demo_token_for_local_auth');
           
           setIsAuthenticated(true);
         } else {
           console.log('Auth error and no login state, redirecting to login');
-        router.push('/auth/login');
+          router.push('/auth/login');
         }
       } finally {
         setIsLoading(false);
       }
     }
-    
+
     checkAuth();
   }, [router]);
 
