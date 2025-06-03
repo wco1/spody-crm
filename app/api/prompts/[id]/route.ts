@@ -41,7 +41,8 @@ export async function GET(
           traits,
           genres,
           gender,
-          is_active
+          is_active,
+          character_id
         )
       `)
       .eq('id', params.id)
@@ -79,7 +80,7 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const { prompt_text, version, is_active } = body;
+    const { prompt_text, version, is_active, openrouter_model } = body;
 
     if (!prompt_text) {
       return NextResponse.json(
@@ -94,6 +95,7 @@ export async function PUT(
         prompt_text,
         version: version || 1,
         is_active: is_active !== undefined ? is_active : true,
+        openrouter_model: openrouter_model || 'mistralai/mistral-medium-3',
         updated_at: new Date().toISOString()
       })
       .eq('id', params.id)
@@ -107,7 +109,8 @@ export async function PUT(
           traits,
           genres,
           gender,
-          is_active
+          is_active,
+          character_id
         )
       `)
       .single();

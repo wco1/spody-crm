@@ -1,9 +1,11 @@
+// Development CRM Layout - версия для разработки
+// Последнее обновление: январь 2025
 import type { Metadata } from "next";
 import "./globals.css";
 
 // Форсируем динамический рендеринг для всех страниц
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// export const dynamic = 'force-dynamic';
+// export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: "Spody Admin Panel",

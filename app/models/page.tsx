@@ -48,7 +48,7 @@ export default function ModelsPage() {
   const [models, setModels] = useState<AIModel[]>([]);
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddingNew, setIsAddingNew] = useState(false);
@@ -68,15 +68,15 @@ export default function ModelsPage() {
   // Новая модель (для добавления)
   const [newModel, setNewModel] = useState({
     name: '',
-    avatar_url: '',
     bio: '',
+    avatar_url: '',
+    gender: '' as 'male' | 'female' | '',
     traits: [] as string[],
-    genres: [] as string[],
-    gender: ''
+    genres: [] as string[]
   });
 
   // Новый промпт
-  const [newPrompt, setNewPrompt] = useState({
+  const [newPrompt, setNewPrompt] = useState<Partial<Prompt>>({
     prompt_text: '',
     version: 1,
     is_active: true
@@ -777,6 +777,21 @@ export default function ModelsPage() {
     setCurrentModelId(modelId);
     setShowPromptModal(true);
   };
+
+  // Диагностическое логирование для изображений
+  useEffect(() => {
+    if (models.length > 0) {
+      console.log('[DEBUG] Модели загружены:', models.length);
+      models.forEach((model, index) => {
+        console.log(`[DEBUG] Модель ${index + 1}:`, {
+          id: model.id,
+          name: model.name,
+          avatar_url: model.avatar_url,
+          hasAvatar: !!model.avatar_url
+        });
+      });
+    }
+  }, [models]);
 
   if (loading) {
     return (

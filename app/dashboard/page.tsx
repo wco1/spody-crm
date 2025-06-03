@@ -145,19 +145,20 @@ export default function Dashboard() {
         const userMessages = chatMessagesData?.filter(msg => msg.is_user === true) || [];
         console.log('👤 Пользовательские сообщения:', userMessages.length);
 
-        // Получаем данные бесед (если есть) - опциональный запрос
+        // Получаем данные бесед через API
         let conversationsData = null;
         let conversationsError = null;
         try {
-          const conversationsResult = await supabase
-          .from('conversations')
-          .select('*')
-          .limit(1000);
-          conversationsData = conversationsResult.data;
-          conversationsError = conversationsResult.error;
+          const conversationsResponse = await fetch('/api/conversations');
+          if (conversationsResponse.ok) {
+            const conversationsResult = await conversationsResponse.json();
+            conversationsData = conversationsResult.conversations;
+          } else {
+            conversationsError = { message: 'API недоступен' };
+          }
         } catch (err) {
-          console.log('⚠️ Таблица conversations недоступна (возможно не создана в staging)');
-          conversationsError = { message: 'Таблица не найдена' };
+          console.log('⚠️ API conversations недоступен');
+          conversationsError = { message: 'API не найден' };
         }
         
         console.log('💬 Беседы:', conversationsError ? `Ошибка: ${conversationsError.message}` : `Загружено: ${conversationsData?.length || 0}`);

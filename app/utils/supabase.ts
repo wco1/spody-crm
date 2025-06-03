@@ -536,11 +536,9 @@ export async function signIn(email: string, password: string) {
         return { success: true, user: data.user, session: data.session };
       }
       
-      console.error('Authentication error:', error);
-      
-      // Если Supabase выдал ошибку, проверяем локально для демонстрационных данных
+      // Проверяем демо-аккаунт без вывода ошибки в консоль
       if (email === 'admin@spody.app' && password === 'admin123') {
-        console.log('Using fallback auth for demo account');
+        console.log('Using demo authentication');
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('authMethod', 'local');
         localStorage.setItem('authUser', JSON.stringify({
@@ -561,6 +559,8 @@ export async function signIn(email: string, password: string) {
         };
       }
       
+      // Только теперь логируем ошибку если это не демо-аккаунт
+      console.error('Authentication error:', error);
       return { success: false, error };
     });
   } catch (error) {

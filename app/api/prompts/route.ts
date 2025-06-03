@@ -1,32 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Проверяем переменные окружения
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Missing Supabase environment variables:', {
-    url: !!supabaseUrl,
-    key: !!supabaseServiceKey
-  });
-}
-
-const supabase = supabaseUrl && supabaseServiceKey 
-  ? createClient(supabaseUrl, supabaseServiceKey)
-  : null;
+import { supabaseAdmin } from '../../utils/supabase';
 
 // GET /api/prompts - получить все промпты с моделями
 export async function GET() {
-  if (!supabase) {
-    return NextResponse.json(
-      { error: 'Сервис временно недоступен' },
-      { status: 503 }
-    );
-  }
-
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('ai_prompts')
       .select(`
         *,
@@ -38,7 +16,8 @@ export async function GET() {
           traits,
           genres,
           gender,
-          is_active
+          is_active,
+          character_id
         )
       `)
       .order('created_at', { ascending: false });
@@ -63,16 +42,9 @@ export async function GET() {
 
 // POST /api/prompts - создать новый промпт
 export async function POST(request: NextRequest) {
-  if (!supabase) {
-    return NextResponse.json(
-      { error: 'Сервис временно недоступен' },
-      { status: 503 }
-    );
-  }
-
   try {
     const body = await request.json();
-    const { model_id, prompt_text, version, is_active } = body;
+    const { model_id, prompt_text, version, is_active, openrouter_model } = body;
 
     if (!model_id || !prompt_text) {
       return NextResponse.json(
@@ -81,13 +53,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('ai_prompts')
       .insert([{
         model_id,
         prompt_text,
         version: version || 1,
-        is_active: is_active !== undefined ? is_active : true
+        is_active: is_active !== undefined ? is_active : true,
+        openrouter_model: openrouter_model || 'mistralai/mistral-medium-3'
       }])
       .select(`
         *,
@@ -99,7 +72,8 @@ export async function POST(request: NextRequest) {
           traits,
           genres,
           gender,
-          is_active
+          is_active,
+          character_id
         )
       `)
       .single();
