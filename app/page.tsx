@@ -1,3 +1,4 @@
+// Dev-версия CRM системы Spody - добавлено 03.06.2025
 'use client';
 
 import { useRouter } from 'next/navigation';
