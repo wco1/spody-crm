@@ -84,11 +84,11 @@ async function getFullConfig() {
           const settings = {
             model: prompt.openrouter_model || 'mistralai/mistral-medium-3',
             settings: {
-              temperature: 1.4,
-              max_tokens: 800,
-              top_p: 1,
-              frequency_penalty: 0.7,
-              presence_penalty: 0.7
+              temperature: 0.2,
+              max_tokens: 200,
+              top_p: 0.9,
+              frequency_penalty: 0.8,
+              presence_penalty: 0.8
             }
           };
           

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BarChart3, Bot, Cog, LogOut, Link as LinkIcon } from 'lucide-react';
+import { Home, BarChart3, Bot, Cog, LogOut, Link as LinkIcon, FileText } from 'lucide-react';
 
 interface SidebarProps {
   className?: string;
@@ -32,9 +32,15 @@ export default function Sidebar({ className = '' }: SidebarProps) {
     },
     {
       href: '/models',
-      label: 'Модели и промпты',
+      label: 'Модели',
       icon: Bot,
       isActive: pathname === '/models'
+    },
+    {
+      href: '/prompts',
+      label: 'Промпты',
+      icon: FileText,
+      isActive: pathname === '/prompts'
     },
     {
       href: '/settings',

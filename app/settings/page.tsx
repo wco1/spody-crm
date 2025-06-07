@@ -14,14 +14,14 @@ export default function SettingsPage() {
     timezone: 'UTC+3',
     enableLogging: true,
     openrouterKey: 'sk-or-v1-1234567890abcdef1234567890abcdef',
-    supabaseUrl: 'https://kulssuzzjwlyacqvawau.supabase.co',
+    supabaseUrl: 'https://avfdefowtxijmlvocodx.supabase.co',
     supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
     emailNotifications: true,
     newUserNotifications: true,
     errorNotifications: true,
     weeklyDigest: false,
     notificationEmail: 'admin@spody.app',
-    dbHost: 'kulssuzzjwlyacqvawau.supabase.co',
+    dbHost: 'avfdefowtxijmlvocodx.supabase.co',
     dbName: 'postgres',
     backupSchedule: 'weekly'
   });

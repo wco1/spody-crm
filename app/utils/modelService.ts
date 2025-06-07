@@ -13,6 +13,9 @@ export interface AIModel {
   created_at: string;
   updated_at?: string;
   user_id?: string;
+  prompt_template_id?: string;
+  custom_prompt?: string;
+  use_custom_prompt?: boolean;
 }
 
 export interface ModelCreateInput {
@@ -23,6 +26,9 @@ export interface ModelCreateInput {
   genres?: string[];
   gender?: 'male' | 'female' | '';
   character_id?: string;
+  prompt_template_id?: string;
+  custom_prompt?: string;
+  use_custom_prompt?: boolean;
 }
 
 export interface ModelUpdateInput {
@@ -33,6 +39,9 @@ export interface ModelUpdateInput {
   genres?: string[];
   gender?: 'male' | 'female' | '';
   character_id?: string;
+  prompt_template_id?: string;
+  custom_prompt?: string;
+  use_custom_prompt?: boolean;
 }
 
 // Класс для работы с моделями
@@ -107,7 +116,10 @@ export class ModelService {
           traits: model.traits || [],
           genres: model.genres || [],
           gender: model.gender || 'female',
-          character_id: model.character_id || null
+          character_id: model.character_id || undefined,
+          prompt_template_id: model.prompt_template_id || undefined,
+          custom_prompt: model.custom_prompt || '',
+          use_custom_prompt: model.use_custom_prompt || false
         }])
         .select();
       
@@ -324,15 +336,19 @@ export class ModelService {
     return withSupabase(async (client) => {
       // Создаем уникальное имя с точной датой и временем
       const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '').substring(0, 15);
-      const testModel: ModelCreateInput = {
-        name: `_test_${timestamp}Z`,
-        bio: 'Test record for diagnostics - will be deleted',
+      const testModelData: ModelCreateInput = {
+        name: `Тестовая модель ${Date.now()}`,
+        bio: 'Это тестовая модель, созданная автоматически',
+        avatar_url: '',
         traits: ['test', 'demo', 'sample'],
         genres: ['test'],
-        gender: 'female'
+        gender: 'female',
+        prompt_template_id: undefined,
+        custom_prompt: '',
+        use_custom_prompt: false
       };
       
-      console.log('Создаем тестовую модель с именем:', testModel.name);
+      console.log('Создаем тестовую модель с именем:', testModelData.name);
       
       // Проверяем, есть ли у нас нужные колонки в таблице
       try {
@@ -356,7 +372,7 @@ export class ModelService {
         throw schemaErr;
       }
       
-      return await this.createModel(testModel);
+      return await this.createModel(testModelData);
     });
   }
   

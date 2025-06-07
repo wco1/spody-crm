@@ -6,6 +6,7 @@ import SafeImage from '../components/SafeImage';
 import ModelService, { AIModel } from '../utils/modelService';
 import AvatarService from '../utils/avatarService';
 import CleanupService from '../utils/cleanupService';
+import { supabaseAdmin as supabase } from '../utils/supabase';
 
 // Интерфейс для ошибок Supabase
 interface SupabaseError {
@@ -44,9 +45,24 @@ interface Prompt {
   updated_at: string;
 }
 
+// Интерфейс для шаблонов промптов
+interface PromptTemplate {
+  id: string;
+  name: string;
+  template: string;
+  description: string;
+  category: string;
+  is_default: boolean;
+  variables: string[] | string;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+}
+
 export default function ModelsPage() {
   const [models, setModels] = useState<AIModel[]>([]);
   const [prompts, setPrompts] = useState<Prompt[]>([]);
+  const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
@@ -72,7 +88,10 @@ export default function ModelsPage() {
     avatar_url: '',
     gender: '' as 'male' | 'female' | '',
     traits: [] as string[],
-    genres: [] as string[]
+    genres: [] as string[],
+    prompt_template_id: '',
+    custom_prompt: '',
+    use_custom_prompt: false
   });
 
   // Новый промпт
@@ -82,6 +101,22 @@ export default function ModelsPage() {
     is_active: true
   });
 
+  // Утилита для безопасного парсинга variables
+  const parseVariables = (variables: string[] | string | any): string[] => {
+    if (Array.isArray(variables)) {
+      return variables;
+    }
+    if (typeof variables === 'string') {
+      try {
+        const parsed = JSON.parse(variables);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
   // Загрузка данных
   useEffect(() => {
     loadData();
@@ -90,9 +125,10 @@ export default function ModelsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [modelsRes, promptsRes] = await Promise.all([
+      const [modelsRes, promptsRes, templatesRes] = await Promise.all([
         fetch('/api/models'),
-        fetch('/api/prompts')
+        fetch('/api/prompts'),
+        loadPromptTemplates()
       ]);
 
       if (modelsRes.ok) {
@@ -111,9 +147,37 @@ export default function ModelsPage() {
     setLoading(false);
   };
 
+  const loadPromptTemplates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('prompts_templates')
+        .select('*')
+        .eq('is_active', true)
+        .order('category', { ascending: true });
+
+      if (error) throw error;
+      
+      const processedData = (data || []).map(template => ({
+        ...template,
+        variables: parseVariables(template.variables)
+      }));
+      
+      setPromptTemplates(processedData);
+      return processedData;
+    } catch (error) {
+      console.error('Ошибка загрузки шаблонов:', error);
+      return [];
+    }
+  };
+
   // Получить промпты для конкретной модели
   const getModelPrompts = (modelId: string) => {
     return prompts.filter(prompt => prompt.model_id === modelId);
+  };
+
+  // Получить шаблон промпта по ID
+  const getPromptTemplate = (templateId: string) => {
+    return promptTemplates.find(template => template.id === templateId);
   };
 
   // Создание нового промпта
@@ -384,7 +448,12 @@ export default function ModelsPage() {
 
   // Обработчик открытия модального окна для редактирования
   const openEditModal = (model: AIModel) => {
-    setSelectedModel(model);
+    setSelectedModel({
+      ...model,
+      prompt_template_id: model.prompt_template_id || '',
+      custom_prompt: model.custom_prompt || '',
+      use_custom_prompt: model.use_custom_prompt || false
+    });
     setIsAddingNew(false);
     setIsModalOpen(true);
   };
@@ -399,7 +468,10 @@ export default function ModelsPage() {
       bio: '',
       traits: [],
       genres: [],
-      gender: ''
+      gender: '',
+      prompt_template_id: '',
+      custom_prompt: '',
+      use_custom_prompt: false
     });
     setIsModalOpen(true);
   };
@@ -503,7 +575,8 @@ export default function ModelsPage() {
 
   // Обработчик изменений в форме редактирования
   const handleSelectedModelChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
     
     if (selectedModel) {
       console.log(`Updating model field: ${name}, new value: ${value}`);
@@ -511,7 +584,7 @@ export default function ModelsPage() {
       // Создаем новый объект модели с обновленным значением
       const updatedModel = {
         ...selectedModel,
-        [name]: value
+        [name]: type === 'checkbox' ? checked : value
       };
       
       // Обновляем состояние с новым объектом
@@ -524,11 +597,12 @@ export default function ModelsPage() {
 
   // Обработчик изменений в форме добавления
   const handleNewModelChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
     
     setNewModel({
       ...newModel,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     });
   };
 
@@ -557,7 +631,10 @@ export default function ModelsPage() {
             bio: newModel.bio,
             gender: newModel.gender as 'male' | 'female' | undefined,
             traits: newModel.traits,
-            genres: newModel.genres
+            genres: newModel.genres,
+            prompt_template_id: newModel.prompt_template_id || undefined,
+            custom_prompt: newModel.custom_prompt || '',
+            use_custom_prompt: newModel.use_custom_prompt
           });
           
           if (createdModel) {
@@ -613,7 +690,10 @@ export default function ModelsPage() {
             avatar_url: avatarUrl,
             gender: newModel.gender as 'male' | 'female' | undefined,
             traits: newModel.traits,
-            genres: newModel.genres
+            genres: newModel.genres,
+            prompt_template_id: newModel.prompt_template_id || undefined,
+            custom_prompt: newModel.custom_prompt || '',
+            use_custom_prompt: newModel.use_custom_prompt
           });
           
           if (createdModel) {
@@ -639,7 +719,10 @@ export default function ModelsPage() {
               avatar_url: avatarUrl,
               gender: selectedModel.gender as 'male' | 'female' | undefined,
               traits: selectedModel.traits,
-              genres: selectedModel.genres
+              genres: selectedModel.genres,
+              prompt_template_id: selectedModel.prompt_template_id || undefined,
+              custom_prompt: selectedModel.custom_prompt || '',
+              use_custom_prompt: selectedModel.use_custom_prompt
             });
             
             if (updatedModel) {
@@ -662,7 +745,10 @@ export default function ModelsPage() {
               bio: selectedModel.bio,
               gender: selectedModel.gender as 'male' | 'female' | undefined,
               traits: selectedModel.traits,
-              genres: selectedModel.genres
+              genres: selectedModel.genres,
+              prompt_template_id: selectedModel.prompt_template_id || undefined,
+              custom_prompt: selectedModel.custom_prompt || '',
+              use_custom_prompt: selectedModel.use_custom_prompt
             });
             
             if (updatedModel) {
@@ -706,7 +792,10 @@ export default function ModelsPage() {
             avatar_url: avatarUrl,
             gender: selectedModel.gender as 'male' | 'female' | undefined,
             traits: selectedModel.traits,
-            genres: selectedModel.genres
+            genres: selectedModel.genres,
+            prompt_template_id: selectedModel.prompt_template_id || undefined,
+            custom_prompt: selectedModel.custom_prompt || '',
+            use_custom_prompt: selectedModel.use_custom_prompt
           };
           
           console.log('Update data prepared:', updateData);
@@ -915,6 +1004,23 @@ export default function ModelsPage() {
                           </span>
                         ))}
                       </div>
+                      
+                      {/* Информация о промпте */}
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {model.use_custom_prompt ? (
+                          <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
+                            🔧 Кастомный промпт
+                          </span>
+                        ) : model.prompt_template_id ? (
+                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                            📋 {getPromptTemplate(model.prompt_template_id)?.name || 'Шаблон'}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">
+                            ⚠️ Промпт не настроен
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
@@ -953,115 +1059,249 @@ export default function ModelsPage() {
               {/* Промпты модели (раскрывающийся список) */}
               {expandedModelId === model.id && (
                 <div className="p-4 bg-gray-50">
-                  <h4 className="text-md font-medium mb-3">Промпты для {model.name}</h4>
+                  <h4 className="text-md font-medium mb-3">Система промптов для {model.name}</h4>
                   
-                  {getModelPrompts(model.id).length > 0 ? (
+                  {/* Проверяем какая система промптов используется */}
+                  {model.use_custom_prompt || model.prompt_template_id ? (
+                    /* Новая система промптов */
                     <div className="space-y-3">
-                      {getModelPrompts(model.id).map(prompt => (
-                        <div key={prompt.id} className="bg-white p-4 rounded border">
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className={`px-2 py-1 rounded-full text-xs ${
-                                prompt.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                              }`}>
-                                {prompt.is_active ? 'Активный' : 'Неактивный'}
-                              </span>
-                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-                                v{prompt.version}
-                              </span>
-                            </div>
-                            
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => setEditingPrompt(prompt)}
-                                className="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs"
-                              >
-                                Редактировать
-                              </button>
-                              <button
-                                onClick={() => handleDeletePrompt(prompt.id)}
-                                className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs"
-                              >
-                                Удалить
-                              </button>
+                      <div className="bg-blue-50 border border-blue-200 p-4 rounded">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                            ✨ Новая система промптов
+                          </span>
+                          <span className="text-xs text-blue-600">
+                            Активная система
+                          </span>
+                        </div>
+                        
+                        {model.use_custom_prompt ? (
+                          <div>
+                            <h5 className="font-medium text-blue-900 mb-2">🔧 Кастомный промпт:</h5>
+                            <div className="bg-white p-3 rounded border text-sm">
+                              {model.custom_prompt || 'Промпт не задан'}
                             </div>
                           </div>
-                          
-                          {editingPrompt?.id === prompt.id ? (
-                            <div className="space-y-3">
-                              <textarea
-                                value={editingPrompt.prompt_text}
-                                onChange={(e) => setEditingPrompt({
-                                  ...editingPrompt,
-                                  prompt_text: e.target.value
-                                })}
-                                rows={6}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                              />
-                              <div className="flex items-center space-x-4">
-                                <div className="flex items-center space-x-2">
-                                  <label>Версия:</label>
-                                  <input
-                                    type="number"
-                                    value={editingPrompt.version}
-                                    onChange={(e) => setEditingPrompt({
-                                      ...editingPrompt,
-                                      version: parseInt(e.target.value)
-                                    })}
-                                    className="w-20 border border-gray-300 rounded px-2 py-1"
-                                    min="1"
-                                  />
+                        ) : model.prompt_template_id ? (
+                          <div>
+                            <h5 className="font-medium text-blue-900 mb-2">📋 Используется шаблон:</h5>
+                            {(() => {
+                              const template = getPromptTemplate(model.prompt_template_id);
+                              if (template) {
+                                return (
+                                  <div className="bg-white p-3 rounded border">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <span className="font-medium">{template.name}</span>
+                                      <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                                        {template.category}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600 mb-2">{template.description}</p>
+                                    <div className="text-sm font-mono bg-gray-50 p-2 rounded">
+                                      {template.template.length > 200 
+                                        ? template.template.substring(0, 200) + '...'
+                                        : template.template
+                                      }
+                                    </div>
+                                    {parseVariables(template.variables).length > 0 && (
+                                      <div className="flex gap-1 mt-2">
+                                        <span className="text-xs text-gray-500">Переменные:</span>
+                                        {parseVariables(template.variables).map((variable, idx) => (
+                                          <span key={idx} className="px-1 py-0.5 bg-blue-100 text-blue-600 rounded text-xs">
+                                            ${variable}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div className="bg-white p-3 rounded border text-red-600">
+                                  ⚠️ Шаблон не найден (ID: {model.prompt_template_id})
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={editingPrompt.is_active}
-                                    onChange={(e) => setEditingPrompt({
-                                      ...editingPrompt,
-                                      is_active: e.target.checked
-                                    })}
-                                  />
-                                  <label>Активный</label>
+                              );
+                            })()}
+                          </div>
+                        ) : null}
+                      </div>
+                      
+                      {/* Показываем старые промпты как неактивные */}
+                      {getModelPrompts(model.id).length > 0 && (
+                        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">
+                              ⚠️ Устаревшие промпты
+                            </span>
+                            <span className="text-xs text-yellow-600">
+                              Не используются (старая система)
+                            </span>
+                          </div>
+                          <p className="text-sm text-yellow-700 mb-2">
+                            Найдены промпты из старой системы. Они больше не используются.
+                          </p>
+                          <details className="text-sm">
+                            <summary className="cursor-pointer text-yellow-800 hover:text-yellow-900">
+                              Показать устаревшие промпты ({getModelPrompts(model.id).length})
+                            </summary>
+                            <div className="mt-2 space-y-2">
+                              {getModelPrompts(model.id).map(prompt => (
+                                <div key={prompt.id} className="bg-white p-3 rounded border border-yellow-200 opacity-60">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
+                                        Неактивен
+                                      </span>
+                                      <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
+                                        v{prompt.version}
+                                      </span>
+                                    </div>
+                                    <button
+                                      onClick={() => handleDeletePrompt(prompt.id)}
+                                      className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs"
+                                    >
+                                      Удалить устаревший
+                                    </button>
+                                  </div>
+                                  <p className="text-sm text-gray-700">
+                                    {prompt.prompt_text.length > 100 
+                                      ? `${prompt.prompt_text.substring(0, 100)}...`
+                                      : prompt.prompt_text
+                                    }
+                                  </p>
                                 </div>
-                              </div>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleUpdatePrompt(prompt.id, {
-                                    prompt_text: editingPrompt.prompt_text,
-                                    version: editingPrompt.version,
-                                    is_active: editingPrompt.is_active
-                                  })}
-                                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
-                                >
-                                  Сохранить
-                                </button>
-                                <button
-                                  onClick={() => setEditingPrompt(null)}
-                                  className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded"
-                                >
-                                  Отменить
-                                </button>
-                              </div>
+                              ))}
                             </div>
-                          ) : (
-                            <div>
-                              <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                                {prompt.prompt_text.length > 200 
-                                  ? `${prompt.prompt_text.substring(0, 200)}...`
-                                  : prompt.prompt_text
-                                }
-                              </p>
-                              <div className="text-xs text-gray-500 mt-2">
-                                Создан: {formatDate(prompt.created_at)} • 
-                                Обновлен: {formatDate(prompt.updated_at)}
-                              </div>
-                            </div>
-                          )}
+                          </details>
                         </div>
-                      ))}
+                      )}
                     </div>
                   ) : (
-                    <p className="text-gray-600 text-sm">Нет промптов для этой модели</p>
+                    /* Старая система промптов (если новая не настроена) */
+                    <div className="space-y-3">
+                      <div className="bg-orange-50 border border-orange-200 p-3 rounded">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">
+                            📜 Старая система промптов
+                          </span>
+                          <span className="text-xs text-orange-600">
+                            Рекомендуется перейти на новую систему
+                          </span>
+                        </div>
+                        <p className="text-sm text-orange-700">
+                          Для этой модели не настроены новые промпты. Используются промпты из старой системы.
+                        </p>
+                      </div>
+                      
+                      {getModelPrompts(model.id).length > 0 ? (
+                        <div className="space-y-3">
+                          {getModelPrompts(model.id).map(prompt => (
+                            <div key={prompt.id} className="bg-white p-4 rounded border">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className={`px-2 py-1 rounded-full text-xs ${
+                                    prompt.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {prompt.is_active ? 'Активный' : 'Неактивный'}
+                                  </span>
+                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                                    v{prompt.version}
+                                  </span>
+                                </div>
+                                
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => setEditingPrompt(prompt)}
+                                    className="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs"
+                                  >
+                                    Редактировать
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeletePrompt(prompt.id)}
+                                    className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs"
+                                  >
+                                    Удалить
+                                  </button>
+                                </div>
+                              </div>
+                              
+                              {editingPrompt?.id === prompt.id ? (
+                                <div className="space-y-3">
+                                  <textarea
+                                    value={editingPrompt.prompt_text}
+                                    onChange={(e) => setEditingPrompt({
+                                      ...editingPrompt,
+                                      prompt_text: e.target.value
+                                    })}
+                                    rows={6}
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                                  />
+                                  <div className="flex items-center space-x-4">
+                                    <div className="flex items-center space-x-2">
+                                      <label>Версия:</label>
+                                      <input
+                                        type="number"
+                                        value={editingPrompt.version}
+                                        onChange={(e) => setEditingPrompt({
+                                          ...editingPrompt,
+                                          version: parseInt(e.target.value)
+                                        })}
+                                        className="w-20 border border-gray-300 rounded px-2 py-1"
+                                        min="1"
+                                      />
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={editingPrompt.is_active}
+                                        onChange={(e) => setEditingPrompt({
+                                          ...editingPrompt,
+                                          is_active: e.target.checked
+                                        })}
+                                      />
+                                      <label>Активный</label>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handleUpdatePrompt(prompt.id, {
+                                        prompt_text: editingPrompt.prompt_text,
+                                        version: editingPrompt.version,
+                                        is_active: editingPrompt.is_active
+                                      })}
+                                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
+                                    >
+                                      Сохранить
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingPrompt(null)}
+                                      className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded"
+                                    >
+                                      Отменить
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div>
+                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                    {prompt.prompt_text.length > 200 
+                                      ? `${prompt.prompt_text.substring(0, 200)}...`
+                                      : prompt.prompt_text
+                                    }
+                                  </p>
+                                  <div className="text-xs text-gray-500 mt-2">
+                                    Создан: {formatDate(prompt.created_at)} • 
+                                    Обновлен: {formatDate(prompt.updated_at)}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-gray-600 text-sm">Нет промптов для этой модели</p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -1303,6 +1543,99 @@ export default function ModelsPage() {
                   />
                 </div>
               )}
+              
+              {/* Секция шаблонов промптов */}
+              <div className="border-t pt-4 mt-6">
+                <h3 className="text-md font-medium text-gray-800 mb-4">Настройка промптов</h3>
+                
+                <div className="mb-4">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      name="use_custom_prompt"
+                      checked={isAddingNew ? newModel.use_custom_prompt : selectedModel?.use_custom_prompt || false}
+                      onChange={isAddingNew ? handleNewModelChange : handleSelectedModelChange}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      Использовать кастомный промпт
+                    </span>
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Если отключено, будет использован шаблон промпта
+                  </p>
+                </div>
+
+                {(isAddingNew ? newModel.use_custom_prompt : selectedModel?.use_custom_prompt) ? (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Кастомный промпт
+                    </label>
+                    <textarea
+                      name="custom_prompt"
+                      value={isAddingNew ? newModel.custom_prompt : selectedModel?.custom_prompt || ''}
+                      onChange={isAddingNew ? handleNewModelChange : handleSelectedModelChange}
+                      rows={6}
+                      className="w-full input"
+                      placeholder="Введите системный промпт для этой модели..."
+                    />
+                  </div>
+                ) : (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Шаблон промпта
+                    </label>
+                    <select
+                      name="prompt_template_id"
+                      value={isAddingNew ? newModel.prompt_template_id : selectedModel?.prompt_template_id || ''}
+                      onChange={isAddingNew ? handleNewModelChange : handleSelectedModelChange}
+                      className="w-full input"
+                    >
+                      <option value="">Выберите шаблон промпта</option>
+                      {promptTemplates.map(template => (
+                        <option key={template.id} value={template.id}>
+                          {template.name} ({template.category})
+                          {template.is_default ? ' ⭐' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    
+                    {/* Показываем превью выбранного шаблона */}
+                    {(isAddingNew ? newModel.prompt_template_id : selectedModel?.prompt_template_id) && (
+                      <div className="mt-2 p-3 bg-gray-50 rounded text-sm">
+                        {(() => {
+                          const templateId = isAddingNew ? newModel.prompt_template_id : selectedModel?.prompt_template_id;
+                          const template = getPromptTemplate(templateId || '');
+                          if (template) {
+                            return (
+                              <div>
+                                <p className="font-medium text-gray-700 mb-1">{template.description}</p>
+                                <p className="text-gray-600 text-xs">
+                                  {template.template.length > 200 
+                                    ? template.template.substring(0, 200) + '...'
+                                    : template.template
+                                  }
+                                </p>
+                                {parseVariables(template.variables).length > 0 && (
+                                  <div className="flex gap-1 mt-2">
+                                    <span className="text-xs text-gray-500">Переменные:</span>
+                                    {parseVariables(template.variables).map((variable, idx) => (
+                                      <span key={idx} className="px-1 py-0.5 bg-blue-100 text-blue-600 rounded text-xs">
+                                        ${variable}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               
               <div className="mt-6 flex justify-end space-x-3">
                 <button 

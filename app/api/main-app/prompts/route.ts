@@ -29,8 +29,43 @@ async function getPrompts() {
   console.log('🔄 [PROMPTS CACHE] Обновляем кэш промптов из БД');
   
   try {
-    // Получаем активные промпты с их моделями
-    const { data, error } = await supabaseAdmin
+    // Создаем новый кэш
+    const newCache: { [key: string]: string } = {};
+    
+    // 1. ЗАГРУЖАЕМ МОДЕЛИ С КАСТОМНЫМИ ПРОМПТАМИ
+    console.log('📦 [PROMPTS CACHE] Загружаем модели с кастомными промптами...');
+    const { data: models, error: modelsError } = await supabaseAdmin
+      .from('ai_models')
+      .select('id, name, character_id, custom_prompt, use_custom_prompt')
+      .eq('is_active', true)
+      .eq('use_custom_prompt', true)
+      .not('custom_prompt', 'is', null);
+
+    if (modelsError) {
+      console.error('❌ [PROMPTS CACHE] Ошибка получения кастомных промптов:', modelsError);
+    } else if (models) {
+      models.forEach(model => {
+        if (model.custom_prompt) {
+          // Добавляем промпт по ID модели
+          newCache[model.id] = model.custom_prompt;
+          // Добавляем промпт по имени модели
+          newCache[model.name] = model.custom_prompt;
+          newCache[model.name.toLowerCase()] = model.custom_prompt;
+          // Добавляем промпт по character_id если есть
+          if (model.character_id) {
+            newCache[model.character_id] = model.custom_prompt;
+          }
+          
+          console.log(`✅ [PROMPTS CACHE] Добавлен кастомный промпт для "${model.name}": "${model.custom_prompt.substring(0, 50)}..."`);
+        }
+      });
+      
+      console.log(`📦 [PROMPTS CACHE] Загружено ${models.length} кастомных промптов`);
+    }
+    
+    // 2. ЗАГРУЖАЕМ ПРОМПТЫ ИЗ ai_prompts (старая система)
+    console.log('📦 [PROMPTS CACHE] Загружаем промпты из ai_prompts...');
+    const { data: prompts, error: promptsError } = await supabaseAdmin
       .from('ai_prompts')
       .select(`
         id,
@@ -46,31 +81,32 @@ async function getPrompts() {
       .eq('is_active', true)
       .eq('ai_models.is_active', true);
 
-    if (error) {
-      console.error('❌ [PROMPTS CACHE] Ошибка получения промптов из БД:', error);
-      return promptsCache; // Возвращаем старый кэш при ошибке
-    }
-
-    // Создаем новый кэш
-    const newCache: { [key: string]: string } = {};
-    
-    if (data) {
-      data.forEach(prompt => {
+    if (promptsError) {
+      console.error('❌ [PROMPTS CACHE] Ошибка получения промптов из ai_prompts:', promptsError);
+    } else if (prompts) {
+      prompts.forEach(prompt => {
         const model = Array.isArray(prompt.ai_models) ? prompt.ai_models[0] : prompt.ai_models;
         if (model) {
-          // Добавляем промпт по ID модели
-          newCache[model.id] = prompt.prompt_text;
-          
-          // Добавляем промпт по имени модели (для совместимости)
-          newCache[model.name] = prompt.prompt_text;
-          newCache[model.name.toLowerCase()] = prompt.prompt_text;
-          
-          // Добавляем промпт по character_id если есть
-          if (model.character_id) {
-            newCache[model.character_id] = prompt.prompt_text;
+          // Добавляем промпт только если нет кастомного промпта для этой модели
+          if (!newCache[model.name]) {
+            // Добавляем промпт по ID модели
+            newCache[model.id] = prompt.prompt_text;
+            // Добавляем промпт по имени модели
+            newCache[model.name] = prompt.prompt_text;
+            newCache[model.name.toLowerCase()] = prompt.prompt_text;
+            // Добавляем промпт по character_id если есть
+            if (model.character_id) {
+              newCache[model.character_id] = prompt.prompt_text;
+            }
+            
+            console.log(`✅ [PROMPTS CACHE] Добавлен промпт из ai_prompts для "${model.name}": "${prompt.prompt_text.substring(0, 50)}..."`);
+          } else {
+            console.log(`⏭️ [PROMPTS CACHE] Пропускаем "${model.name}" - уже есть кастомный промпт`);
           }
         }
       });
+      
+      console.log(`📦 [PROMPTS CACHE] Обработано ${prompts.length} промптов из ai_prompts`);
     }
     
     // Обновляем кэш
