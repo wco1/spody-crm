@@ -42,6 +42,8 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadMethod, setUploadMethod] = useState<'file' | 'url'>('file');
+  const [photoUrl, setPhotoUrl] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -149,6 +151,47 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
     return photoData;
   };
 
+  // Добавление фото по URL
+  const addPhotoByUrl = async (url: string, isPrimary: boolean = false): Promise<Photo | null> => {
+    if (!url.trim()) {
+      throw new Error('URL не может быть пустым');
+    }
+
+    // Простая валидация URL
+    try {
+      new URL(url);
+    } catch {
+      throw new Error('Некорректный URL');
+    }
+
+    // Если делаем primary, сначала убираем флаг с других
+    if (isPrimary) {
+      await supabase
+        .from('ai_model_photos')
+        .update({ is_primary: false })
+        .eq('model_id', modelId);
+    }
+
+    // Сохраняем в БД
+    const { data: photoData, error: dbError } = await supabase
+      .from('ai_model_photos')
+      .insert({
+        model_id: modelId,
+        photo_url: url,
+        storage_path: '', // Пустой для URL загрузок
+        is_primary: isPrimary || photos.length === 0,
+        display_order: photos.length
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      throw new Error(`Ошибка БД: ${dbError.message}`);
+    }
+
+    return photoData;
+  };
+
   // Обработка выбора файлов
   const handleFiles = async (files: FileList) => {
     if (!files || files.length === 0) return;
@@ -179,6 +222,29 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
     } catch (err) {
       console.error('Upload error:', err);
       setError(err instanceof Error ? err.message : 'Ошибка загрузки');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Обработка добавления фото по URL
+  const handleAddByUrl = async () => {
+    if (!photoUrl.trim()) {
+      setError('Введите URL фото');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setError(null);
+
+      await addPhotoByUrl(photoUrl, photos.length === 0);
+      setPhotoUrl('');
+      await loadPhotos();
+
+    } catch (err) {
+      console.error('URL upload error:', err);
+      setError(err instanceof Error ? err.message : 'Ошибка добавления по URL');
     } finally {
       setUploading(false);
     }
@@ -283,15 +349,56 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
           Фото модели ({photos.length}/{maxPhotos})
         </h3>
         {photos.length < maxPhotos && (
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
-          >
-            {uploading ? 'Загрузка...' : 'Добавить фото'}
-          </button>
+          <div className="flex items-center space-x-2">
+            {/* Переключатель метода загрузки */}
+            <select
+              value={uploadMethod}
+              onChange={(e) => setUploadMethod(e.target.value as 'file' | 'url')}
+              className="text-sm border border-gray-300 rounded px-2 py-1"
+            >
+              <option value="file">Файл</option>
+              <option value="url">URL</option>
+            </select>
+            
+            {uploadMethod === 'file' ? (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+              >
+                {uploading ? 'Загрузка...' : 'Добавить фото'}
+              </button>
+            ) : (
+              <button
+                onClick={handleAddByUrl}
+                disabled={uploading || !photoUrl.trim()}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {uploading ? 'Добавление...' : 'Добавить'}
+              </button>
+            )}
+          </div>
         )}
       </div>
+
+      {/* Поле для URL (показывается только при выборе URL метода) */}
+      {photos.length < maxPhotos && uploadMethod === 'url' && (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            URL фото
+          </label>
+          <input
+            type="url"
+            value={photoUrl}
+            onChange={(e) => setPhotoUrl(e.target.value)}
+            placeholder="https://example.com/photo.jpg"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Введите прямую ссылку на изображение
+          </p>
+        </div>
+      )}
 
       {/* Скрытый input для файлов */}
       <input
@@ -317,7 +424,7 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({
       )}
 
       {/* Drag & Drop зона */}
-      {photos.length < maxPhotos && (
+      {photos.length < maxPhotos && uploadMethod === 'file' && (
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
