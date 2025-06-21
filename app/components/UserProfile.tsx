@@ -28,7 +28,7 @@ export default function UserProfile() {
       try {
         const user = await getCurrentUser() as UserWithMetadata | null;
         if (user) {
-          setUserEmail(user.email || 'admin@spody.app');
+          setUserEmail(user.email || 'Неизвестный пользователь');
           
           // Получаем роль из app_metadata, если доступно
           const role = user.app_metadata?.role || user.role || 'admin';

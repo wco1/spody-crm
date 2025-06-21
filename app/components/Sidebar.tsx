@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BarChart3, Bot, Cog, LogOut, Link as LinkIcon, FileText } from 'lucide-react';
+import { Home, BarChart3, Bot, Cog, LogOut, Link as LinkIcon, FileText, Shield } from 'lucide-react';
 
 interface SidebarProps {
   className?: string;
@@ -41,6 +41,12 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       label: 'Промпты',
       icon: FileText,
       isActive: pathname === '/prompts'
+    },
+    {
+      href: '/admin-users',
+      label: 'Администраторы',
+      icon: Shield,
+      isActive: pathname === '/admin-users'
     },
     {
       href: '/settings',
@@ -96,7 +102,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">Администратор</p>
-            <p className="text-xs text-gray-500 truncate">admin@spody.app</p>
+            <p className="text-xs text-gray-500 truncate">Текущий пользователь</p>
           </div>
         </div>
         <button className="flex items-center w-full px-4 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">

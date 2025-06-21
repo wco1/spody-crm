@@ -157,15 +157,15 @@ export default function LoginPage() {
                 <div className="w-full border-t border-gray-200"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Примечание</span>
+                <span className="px-2 bg-white text-gray-500">Информация</span>
               </div>
             </div>
 
             <div className="mt-6 text-sm text-center">
-              <p className="text-gray-600">Для демонстрации используйте:</p>
-              <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                <p className="text-gray-800 font-medium">Email: admin@spody.app</p>
-                <p className="text-gray-800 font-medium">Пароль: admin123</p>
+              <p className="text-gray-600">Доступ только для администраторов</p>
+              <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <p className="text-blue-800 font-medium">🔐 Используйте ваши учетные данные</p>
+                <p className="text-blue-700 text-xs">Если у вас нет доступа, обратитесь к администратору</p>
               </div>
             </div>
           </div>
