@@ -514,7 +514,7 @@ export async function saveSettings(settings: Settings) {
 
 // Функция для входа в систему через Supabase
 export async function signIn(email: string, password: string) {
-  console.log('Authenticating with Supabase:', { email });
+  console.log('🔐 [CRM AUTH] Authenticating with Supabase:', { email });
   
   try {
     return await withSupabase(async (client) => {
@@ -524,21 +524,38 @@ export async function signIn(email: string, password: string) {
         password
       });
       
-      if (!error) {
-        console.log('Successfully authenticated with Supabase');
+      if (!error && data.user) {
+        console.log('✅ [CRM AUTH] Supabase authentication successful');
+        
+        // КРИТИЧНО: Проверяем является ли пользователь админом
+        const isAdmin = await checkAdminAccess(data.user.id, data.user.email);
+        
+        if (!isAdmin) {
+          console.warn('🚫 [CRM AUTH] User is not admin, access denied:', data.user.email);
+          // Выходим из Supabase сессии
+          await client.auth.signOut();
+          return { 
+            success: false, 
+            error: { 
+              message: 'Доступ запрещен. Только администраторы могут войти в CRM.' 
+            } 
+          };
+        }
+        
+        console.log('🎉 [CRM AUTH] Admin access confirmed');
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('authMethod', 'supabase');
         localStorage.setItem('authUser', JSON.stringify({
           id: data.user.id,
           email: data.user.email,
-          role: data.user.role || 'user'
+          role: 'admin'
         }));
         return { success: true, user: data.user, session: data.session };
       }
       
       // Проверяем демо-аккаунт без вывода ошибки в консоль
       if (email === 'admin@spody.app' && password === 'admin123') {
-        console.log('Using demo authentication');
+        console.log('🔧 [CRM AUTH] Using demo authentication');
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('authMethod', 'local');
         localStorage.setItem('authUser', JSON.stringify({
@@ -560,15 +577,15 @@ export async function signIn(email: string, password: string) {
       }
       
       // Только теперь логируем ошибку если это не демо-аккаунт
-      console.error('Authentication error:', error);
+      console.error('❌ [CRM AUTH] Authentication error:', error);
       return { success: false, error };
     });
   } catch (error) {
-    console.error('Unexpected auth error:', error);
+    console.error('💥 [CRM AUTH] Unexpected auth error:', error);
     
     // Если произошла непредвиденная ошибка, также проверяем локально
     if (email === 'admin@spody.app' && password === 'admin123') {
-      console.log('Using fallback auth for demo account after error');
+      console.log('🔧 [CRM AUTH] Using fallback auth for demo account after error');
       localStorage.setItem('isLoggedIn', 'true');
       localStorage.setItem('authMethod', 'local');
       localStorage.setItem('authUser', JSON.stringify({
@@ -590,6 +607,237 @@ export async function signIn(email: string, password: string) {
     }
     
     return { success: false, error: { message: 'Ошибка авторизации. Проверьте данные и попробуйте снова.' } };
+  }
+}
+
+/**
+ * Проверяет имеет ли пользователь админский доступ к CRM
+ * @param userId ID пользователя из Supabase Auth
+ * @param email Email пользователя
+ * @returns true если пользователь админ, false если нет
+ */
+async function checkAdminAccess(userId: string, email?: string): Promise<boolean> {
+  try {
+    console.log('🔍 [CRM AUTH] Checking admin access for:', { userId, email });
+    
+    return await withSupabaseAdmin(async (adminClient) => {
+      // Проверяем в таблице admin_users
+      const { data: adminUsers, error } = await adminClient
+        .from('admin_users')
+        .select('*')
+        .or(`user_id.eq.${userId},email.eq.${email}`)
+        .eq('is_active', true);
+      
+      if (error) {
+        console.error('❌ [CRM AUTH] Error checking admin access:', error);
+        
+        // Если таблицы admin_users нет, создаем её и добавляем текущего пользователя как админа
+        if (error.code === '42P01') { // Table does not exist
+          console.log('📋 [CRM AUTH] admin_users table not found, creating...');
+          await createAdminUsersTable();
+          
+          // Добавляем текущего пользователя как первого админа
+          if (email) {
+            await addAdminUser(userId, email);
+            return true;
+          }
+        }
+        
+        return false;
+      }
+      
+      const isAdmin = adminUsers && adminUsers.length > 0;
+      console.log(isAdmin ? '✅ [CRM AUTH] User is admin' : '❌ [CRM AUTH] User is not admin');
+      
+      return isAdmin;
+    });
+  } catch (error) {
+    console.error('💥 [CRM AUTH] Unexpected error checking admin access:', error);
+    return false;
+  }
+}
+
+/**
+ * Создает таблицу admin_users для управления админскими аккаунтами CRM
+ */
+async function createAdminUsersTable(): Promise<void> {
+  try {
+    console.log('📋 [CRM AUTH] Creating admin_users table...');
+    
+    await withSupabaseAdmin(async (adminClient) => {
+      // Создаем таблицу admin_users
+      const createTableQuery = `
+        CREATE TABLE IF NOT EXISTS public.admin_users (
+          id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+          user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+          email VARCHAR(255) NOT NULL UNIQUE,
+          role VARCHAR(50) DEFAULT 'admin',
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          created_by UUID REFERENCES auth.users(id)
+        );
+      `;
+      
+      const { error: createError } = await adminClient.rpc('exec_sql', {
+        query: createTableQuery
+      });
+      
+      if (createError) {
+        console.error('❌ [CRM AUTH] Error creating admin_users table:', createError);
+        
+        // Если rpc не работает, пробуем создать через прямой SQL
+        console.log('🔄 [CRM AUTH] Trying alternative table creation method...');
+        
+        // Создаем таблицу напрямую (это будет работать только если у нас есть права)
+        const { error: directError } = await adminClient
+          .from('admin_users')
+          .select('id')
+          .limit(1);
+        
+        // Если таблица не существует, создаем её через SQL Editor
+        if (directError && directError.code === '42P01') {
+          console.log('📝 [CRM AUTH] Table does not exist, will create manually');
+          throw new Error('NEED_MANUAL_TABLE_CREATION');
+        }
+        
+        throw createError;
+      }
+      
+      // Включаем RLS
+      const { error: rlsError } = await adminClient.rpc('exec_sql', {
+        query: 'ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;'
+      });
+      
+      if (rlsError) {
+        console.warn('⚠️ [CRM AUTH] Could not enable RLS:', rlsError);
+      }
+      
+      // Создаем политику безопасности
+      const policyQuery = `
+        CREATE POLICY IF NOT EXISTS "Only admins can manage admin users" ON public.admin_users
+        FOR ALL USING (
+          EXISTS (
+            SELECT 1 FROM public.admin_users 
+            WHERE user_id = auth.uid() AND is_active = true
+          )
+        );
+      `;
+      
+      const { error: policyError } = await adminClient.rpc('exec_sql', {
+        query: policyQuery
+      });
+      
+      if (policyError) {
+        console.warn('⚠️ [CRM AUTH] Could not create RLS policy:', policyError);
+      }
+      
+      // Создаем индексы
+      const indexQueries = [
+        'CREATE INDEX IF NOT EXISTS idx_admin_users_user_id ON public.admin_users(user_id);',
+        'CREATE INDEX IF NOT EXISTS idx_admin_users_email ON public.admin_users(email);',
+        'CREATE INDEX IF NOT EXISTS idx_admin_users_active ON public.admin_users(is_active);'
+      ];
+      
+      for (const indexQuery of indexQueries) {
+        const { error: indexError } = await adminClient.rpc('exec_sql', {
+          query: indexQuery
+        });
+        
+        if (indexError) {
+          console.warn('⚠️ [CRM AUTH] Could not create index:', indexError);
+        }
+      }
+      
+      console.log('✅ [CRM AUTH] admin_users table created successfully');
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'NEED_MANUAL_TABLE_CREATION') {
+      console.log('📋 [CRM AUTH] Manual table creation required');
+      throw new Error('MANUAL_TABLE_CREATION_NEEDED');
+    }
+    
+    console.error('💥 [CRM AUTH] Failed to create admin_users table:', error);
+    throw error;
+  }
+}
+
+/**
+ * Добавляет пользователя в админы CRM
+ * @param userId ID пользователя из Supabase Auth
+ * @param email Email пользователя
+ * @param role Роль админа (по умолчанию 'admin')
+ */
+async function addAdminUser(userId: string, email: string, role: string = 'admin'): Promise<void> {
+  try {
+    console.log('➕ [CRM AUTH] Adding admin user:', { userId, email, role });
+    
+    await withSupabaseAdmin(async (adminClient) => {
+      const { error } = await adminClient
+        .from('admin_users')
+        .insert({
+          user_id: userId,
+          email: email,
+          role: role,
+          is_active: true,
+          created_by: userId
+        });
+      
+      if (error) {
+        console.error('❌ [CRM AUTH] Error adding admin user:', error);
+        throw error;
+      }
+      
+      console.log('✅ [CRM AUTH] Admin user added successfully');
+    });
+  } catch (error) {
+    console.error('💥 [CRM AUTH] Failed to add admin user:', error);
+    throw error;
+  }
+}
+
+/**
+ * Публичная функция для добавления админов (только для существующих админов)
+ * @param email Email нового админа
+ * @param role Роль (по умолчанию 'admin')
+ */
+export async function addNewAdmin(email: string, role: string = 'admin'): Promise<{ success: boolean; error?: any }> {
+  try {
+    console.log('👤 [CRM AUTH] Adding new admin via public function:', { email, role });
+    
+    // Сначала проверяем что текущий пользователь - админ
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return { success: false, error: { message: 'Не авторизован' } };
+    }
+    
+    const isCurrentUserAdmin = await checkAdminAccess(currentUser.id, currentUser.email);
+    if (!isCurrentUserAdmin) {
+      return { success: false, error: { message: 'Недостаточно прав для добавления админов' } };
+    }
+    
+    // Проверяем существует ли пользователь в Supabase Auth
+    const { data: users, error: searchError } = await withSupabaseAdmin(async (adminClient) => {
+      return await adminClient.auth.admin.listUsers();
+    });
+    
+    if (searchError) {
+      console.error('❌ [CRM AUTH] Error searching users:', searchError);
+      return { success: false, error: searchError };
+    }
+    
+    const targetUser = users.users.find(user => user.email === email);
+    if (!targetUser) {
+      return { success: false, error: { message: 'Пользователь с таким email не найден в системе' } };
+    }
+    
+    // Добавляем в админы
+    await addAdminUser(targetUser.id, email, role);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('💥 [CRM AUTH] Error in addNewAdmin:', error);
+    return { success: false, error };
   }
 }
 
