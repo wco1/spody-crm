@@ -10,7 +10,7 @@ interface Photo {
   storage_path?: string;
   caption?: string;
   display_order: number;
-  is_active: boolean;
+  send_priority: number;
   created_at: string;
   updated_at: string;
 }
@@ -38,15 +38,25 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
 
     try {
       setLoading(true);
+      console.log('🔍 [SIMPLE UPLOADER] Загружаем фото для модели:', modelId);
+      
+      // ВРЕМЕННО: показываем все фото для диагностики
       const { data, error } = await supabase
         .from('ai_model_photos')
         .select('*')
         .eq('model_id', modelId)
-        .eq('send_priority', 0)
         .order('display_order', { ascending: true });
 
+      console.log('🔍 [SIMPLE UPLOADER] Результат загрузки:', { data, error });
+
       if (error) throw error;
-      setPhotos(data || []);
+      
+      // Фильтруем только профильные фото (send_priority = 0)
+      const profilePhotos = data?.filter(photo => photo.send_priority === 0) || [];
+      console.log('🔍 [SIMPLE UPLOADER] Профильные фото:', profilePhotos);
+      console.log('🔍 [SIMPLE UPLOADER] Всего фото:', data?.length);
+      
+      setPhotos(profilePhotos);
     } catch (err) {
       console.error('Error loading photos:', err);
       setError('Ошибка загрузки фото');
@@ -79,8 +89,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
           model_id: modelId,
           photo_url: photoUrl,
           display_order: nextOrder,
-          send_priority: 0,
-          is_active: true
+          send_priority: 0
         })
         .select()
         .single();
@@ -148,8 +157,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
           model_id: modelId,
           photo_url: result.avatar_url,
           display_order: nextOrder,
-          send_priority: 0,
-          is_active: true
+          send_priority: 0
         });
 
       if (dbError) {
@@ -203,6 +211,33 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
 
   return (
     <div className={`space-y-4 ${className}`}>
+      {/* Диагностическая информация */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+        <div className="font-medium text-blue-800 mb-1">Диагностика фото:</div>
+        <div className="text-blue-700">
+          • Профильных фото: {photos.length}
+          <button
+            onClick={async () => {
+              try {
+                const { data: allPhotos } = await supabase
+                  .from('ai_model_photos')
+                  .select('*')
+                  .eq('model_id', modelId);
+                
+                const messagePhotos = allPhotos?.filter(p => p.send_priority > 0) || [];
+                alert(`Всего фото: ${allPhotos?.length || 0}\nПрофильных: ${photos.length}\nДля сообщений: ${messagePhotos.length}`);
+              } catch (err) {
+                console.error('Ошибка диагностики:', err);
+                alert('Ошибка диагностики');
+              }
+            }}
+            className="ml-2 text-blue-600 underline hover:text-blue-800"
+          >
+            (показать подробности)
+          </button>
+        </div>
+      </div>
+
       {/* Добавление фото */}
       <div className="border border-gray-200 rounded-lg p-4">
         <h4 className="font-medium mb-3">Добавить фото профиля</h4>
@@ -256,7 +291,40 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
         
         {photos.length === 0 ? (
           <div className="text-gray-500 text-sm">
-            Фото пока не добавлены. Добавьте фото по URL выше.
+            Профильные фото пока не добавлены. 
+            <button
+              onClick={async () => {
+                try {
+                  // Показываем все фото этой модели
+                  const { data: allPhotos } = await supabase
+                    .from('ai_model_photos')
+                    .select('*')
+                    .eq('model_id', modelId)
+                    .gt('send_priority', 0)
+                    .order('created_at', { ascending: true });
+                  
+                  if (allPhotos && allPhotos.length > 0) {
+                    // Переводим первое фото в профильное
+                    const firstPhoto = allPhotos[0];
+                    await supabase
+                      .from('ai_model_photos')
+                      .update({ send_priority: 0 })
+                      .eq('id', firstPhoto.id);
+                    
+                    await loadPhotos();
+                    alert('Фото перенесено в профильные!');
+                  } else {
+                    alert('Нет фото для переноса');
+                  }
+                } catch (err) {
+                  console.error('Ошибка переноса:', err);
+                  alert('Ошибка: ' + (err instanceof Error ? err.message : 'Неизвестная ошибка'));
+                }
+              }}
+              className="ml-2 text-blue-600 hover:text-blue-800 underline text-sm"
+            >
+              Перенести из фото для сообщений
+            </button>
           </div>
         ) : (
           <div className="space-y-2">

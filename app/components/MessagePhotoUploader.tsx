@@ -9,7 +9,6 @@ interface MessagePhoto {
   photo_url: string;
   caption: string;
   send_priority: number;
-  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -71,33 +70,51 @@ const MessagePhotoUploader: React.FC<MessagePhotoUploaderProps> = ({
       setUploading(true);
       setError(null);
 
+      console.log('🔍 [CRM] Начинаем добавление фото по URL:', {
+        modelId,
+        photoUrl,
+        caption: caption.trim() || 'Вот моё фото! 📸'
+      });
+
       // Определяем следующий send_priority
       const nextPriority = photos.length > 0 ? Math.max(...photos.map(p => p.send_priority)) + 1 : 1;
       const nextDisplayOrder = await getNextDisplayOrder();
 
+      console.log('🔍 [CRM] Вычисленные параметры:', {
+        nextPriority,
+        nextDisplayOrder,
+        existingPhotosCount: photos.length
+      });
+
+      const insertData = {
+        model_id: modelId,
+        photo_url: photoUrl,
+        caption: caption.trim() || 'Вот моё фото! 📸',
+        send_priority: nextPriority, // Устанавливаем приоритет отправки
+        display_order: nextDisplayOrder
+      };
+
+      console.log('🔍 [CRM] Данные для INSERT:', insertData);
+
       const { data: photoData, error: dbError } = await supabase
         .from('ai_model_photos')
-        .insert({
-          model_id: modelId,
-          photo_url: photoUrl,
-          caption: caption.trim() || 'Вот моё фото! 📸',
-          send_priority: nextPriority, // Устанавливаем приоритет отправки
-          display_order: nextDisplayOrder,
-          is_active: true
-        })
+        .insert(insertData)
         .select()
         .single();
 
       if (dbError) {
+        console.error('❌ [CRM] Ошибка БД при INSERT:', dbError);
         throw new Error(`Ошибка БД: ${dbError.message}`);
       }
+
+      console.log('✅ [CRM] Фото успешно добавлено:', photoData);
 
       setPhotoUrl('');
       setCaption('Вот моё фото! 📸');
       await loadPhotos();
 
     } catch (err) {
-      console.error('URL upload error:', err);
+      console.error('❌ [CRM] URL upload error:', err);
       setError(err instanceof Error ? err.message : 'Ошибка добавления по URL');
     } finally {
       setUploading(false);
@@ -163,20 +180,34 @@ const MessagePhotoUploader: React.FC<MessagePhotoUploaderProps> = ({
       const nextPriority = photos.length > 0 ? Math.max(...photos.map(p => p.send_priority)) + 1 : 1;
       const nextDisplayOrder = await getNextDisplayOrder();
 
+      console.log('🔍 [CRM] Загрузка с устройства - параметры:', {
+        modelId,
+        photoUrl: result.avatar_url,
+        caption: caption.trim() || 'Вот моё фото! 📸',
+        nextPriority,
+        nextDisplayOrder
+      });
+
+      const insertData = {
+        model_id: modelId,
+        photo_url: result.avatar_url,
+        caption: caption.trim() || 'Вот моё фото! 📸',
+        send_priority: nextPriority,
+        display_order: nextDisplayOrder
+      };
+
+      console.log('🔍 [CRM] Данные для INSERT (устройство):', insertData);
+
       const { error: dbError } = await supabase
         .from('ai_model_photos')
-        .insert({
-          model_id: modelId,
-          photo_url: result.avatar_url,
-          caption: caption.trim() || 'Вот моё фото! 📸',
-          send_priority: nextPriority,
-          display_order: nextDisplayOrder,
-          is_active: true
-        });
+        .insert(insertData);
 
       if (dbError) {
+        console.error('❌ [CRM] Ошибка БД при INSERT (устройство):', dbError);
         throw new Error(`Ошибка БД: ${dbError.message}`);
       }
+
+      console.log('✅ [CRM] Фото с устройства успешно добавлено');
 
       setCaption('Вот моё фото! 📸');
       await loadPhotos();
