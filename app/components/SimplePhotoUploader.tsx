@@ -42,6 +42,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
         .from('ai_model_photos')
         .select('*')
         .eq('model_id', modelId)
+        .eq('send_priority', 0)
         .order('display_order', { ascending: true });
 
       if (error) throw error;
@@ -78,6 +79,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
           model_id: modelId,
           photo_url: photoUrl,
           display_order: nextOrder,
+          send_priority: 0,
           is_active: true
         })
         .select()
@@ -146,6 +148,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
           model_id: modelId,
           photo_url: result.avatar_url,
           display_order: nextOrder,
+          send_priority: 0,
           is_active: true
         });
 
