@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getDatabaseInfo } from '../utils/supabase';
 import SafeImage from '../components/SafeImage';
-import PhotoUploader from '../components/PhotoUploader';
+import SimplePhotoUploader from '../components/SimplePhotoUploader';
 import ModelService, { AIModel } from '../utils/modelService';
 import AvatarService from '../utils/avatarService';
 import CleanupService from '../utils/cleanupService';
@@ -1549,9 +1549,8 @@ export default function ModelsPage() {
               {!isAddingNew && selectedModel?.id && (
                 <div className="mb-6 border-t pt-4">
                   <h3 className="text-md font-medium text-gray-800 mb-4">Галерея фото</h3>
-                  <PhotoUploader
+                  <SimplePhotoUploader
                     modelId={selectedModel.id}
-                    maxPhotos={6}
                     className="w-full"
                   />
                 </div>
