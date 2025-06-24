@@ -38,10 +38,12 @@ const MessagePhotoUploader: React.FC<MessagePhotoUploaderProps> = ({
 
     try {
       setLoading(true);
+      // Используем существующую таблицу ai_model_photos с фильтром для фото-сообщений
       const { data, error } = await supabase
-        .from('ai_model_message_photos')
+        .from('ai_model_photos')
         .select('*')
         .eq('model_id', modelId)
+        .gt('send_priority', 0) // Фильтр: только фото с приоритетом отправки
         .order('send_priority', { ascending: true });
 
       if (error) throw error;
@@ -71,14 +73,16 @@ const MessagePhotoUploader: React.FC<MessagePhotoUploaderProps> = ({
 
       // Определяем следующий send_priority
       const nextPriority = photos.length > 0 ? Math.max(...photos.map(p => p.send_priority)) + 1 : 1;
+      const nextDisplayOrder = await getNextDisplayOrder();
 
       const { data: photoData, error: dbError } = await supabase
-        .from('ai_model_message_photos')
+        .from('ai_model_photos')
         .insert({
           model_id: modelId,
           photo_url: photoUrl,
           caption: caption.trim() || 'Вот моё фото! 📸',
-          send_priority: nextPriority,
+          send_priority: nextPriority, // Устанавливаем приоритет отправки
+          display_order: nextDisplayOrder,
           is_active: true
         })
         .select()
@@ -100,6 +104,96 @@ const MessagePhotoUploader: React.FC<MessagePhotoUploaderProps> = ({
     }
   };
 
+  // Получение следующего display_order
+  const getNextDisplayOrder = async () => {
+    try {
+      const { data } = await supabase
+        .from('ai_model_photos')
+        .select('display_order')
+        .eq('model_id', modelId)
+        .order('display_order', { ascending: false })
+        .limit(1);
+
+      return (data?.[0]?.display_order || 0) + 1;
+    } catch {
+      return 1;
+    }
+  };
+
+  // Добавление фото с устройства
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Проверяем тип файла
+    if (!file.type.startsWith('image/')) {
+      setError('Можно загружать только изображения');
+      return;
+    }
+
+    // Ограничение размера файла (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Размер файла не должен превышать 5MB');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setError(null);
+
+      // Создаем FormData для загрузки
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('model_id', modelId);
+
+      // Загружаем через API
+      const response = await fetch('/api/image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Ошибка загрузки файла');
+      }
+
+      const result = await response.json();
+
+      // Добавляем фото в базу как фото для сообщений
+      const nextPriority = photos.length > 0 ? Math.max(...photos.map(p => p.send_priority)) + 1 : 1;
+      const nextDisplayOrder = await getNextDisplayOrder();
+
+      const { error: dbError } = await supabase
+        .from('ai_model_photos')
+        .insert({
+          model_id: modelId,
+          photo_url: result.avatar_url,
+          caption: caption.trim() || 'Вот моё фото! 📸',
+          send_priority: nextPriority,
+          display_order: nextDisplayOrder,
+          is_active: true
+        });
+
+      if (dbError) {
+        throw new Error(`Ошибка БД: ${dbError.message}`);
+      }
+
+      setCaption('Вот моё фото! 📸');
+      await loadPhotos();
+
+      // Очищаем input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+    } catch (err) {
+      console.error('File upload error:', err);
+      setError(err instanceof Error ? err.message : 'Ошибка загрузки файла');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   // Удаление фото для сообщений
   const deletePhoto = async (photo: MessagePhoto) => {
     if (!confirm('Удалить это фото для сообщений?')) return;
@@ -107,7 +201,7 @@ const MessagePhotoUploader: React.FC<MessagePhotoUploaderProps> = ({
     try {
       setUploading(true);
       const { error } = await supabase
-        .from('ai_model_message_photos')
+        .from('ai_model_photos')
         .delete()
         .eq('id', photo.id);
 
@@ -125,7 +219,7 @@ const MessagePhotoUploader: React.FC<MessagePhotoUploaderProps> = ({
   const updateCaption = async (photoId: string, newCaption: string) => {
     try {
       const { error } = await supabase
-        .from('ai_model_message_photos')
+        .from('ai_model_photos')
         .update({ 
           caption: newCaption,
           updated_at: new Date().toISOString()
@@ -144,7 +238,7 @@ const MessagePhotoUploader: React.FC<MessagePhotoUploaderProps> = ({
   const updatePriority = async (photoId: string, newPriority: number) => {
     try {
       const { error } = await supabase
-        .from('ai_model_message_photos')
+        .from('ai_model_photos')
         .update({ 
           send_priority: newPriority,
           updated_at: new Date().toISOString()
@@ -168,6 +262,26 @@ const MessagePhotoUploader: React.FC<MessagePhotoUploaderProps> = ({
       {/* Добавление фото для сообщений по URL */}
       <div className="border border-gray-200 rounded-lg p-4">
         <h4 className="font-medium mb-3">Добавить фото для отправки в сообщениях</h4>
+        
+        {/* Загрузка с устройства */}
+        <div className="mb-4">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            className="hidden"
+            disabled={uploading}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:bg-gray-400 mr-2"
+          >
+            📁 Загрузить с устройства
+          </button>
+          <span className="text-xs text-gray-500">или введите URL ниже</span>
+        </div>
         
         {/* URL фото */}
         <div className="flex gap-2 mb-3">

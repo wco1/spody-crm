@@ -98,6 +98,76 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
     }
   };
 
+  // Добавление фото с устройства
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Проверяем тип файла
+    if (!file.type.startsWith('image/')) {
+      setError('Можно загружать только изображения');
+      return;
+    }
+
+    // Ограничение размера файла (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Размер файла не должен превышать 5MB');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setError(null);
+
+      // Создаем FormData для загрузки
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('model_id', modelId);
+
+      // Загружаем через API
+      const response = await fetch('/api/image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Ошибка загрузки файла');
+      }
+
+      const result = await response.json();
+
+      // Добавляем фото в базу как профильное фото
+      const nextOrder = photos.length > 0 ? Math.max(...photos.map(p => p.display_order)) + 1 : 1;
+
+      const { error: dbError } = await supabase
+        .from('ai_model_photos')
+        .insert({
+          model_id: modelId,
+          photo_url: result.avatar_url,
+          display_order: nextOrder,
+          is_active: true
+        });
+
+      if (dbError) {
+        throw new Error(`Ошибка БД: ${dbError.message}`);
+      }
+
+      await loadPhotos();
+
+      // Очищаем input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+    } catch (err) {
+      console.error('File upload error:', err);
+      setError(err instanceof Error ? err.message : 'Ошибка загрузки файла');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   // Удаление фото
   const deletePhoto = async (photo: Photo) => {
     if (!confirm('Удалить это фото?')) return;
@@ -130,9 +200,31 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Добавление фото по URL */}
+      {/* Добавление фото */}
       <div className="border border-gray-200 rounded-lg p-4">
-        <h4 className="font-medium mb-3">Добавить фото по URL</h4>
+        <h4 className="font-medium mb-3">Добавить фото профиля</h4>
+        
+        {/* Загрузка с устройства */}
+        <div className="mb-4">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            className="hidden"
+            disabled={uploading}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:bg-gray-400 mr-2"
+          >
+            📁 Загрузить с устройства
+          </button>
+          <span className="text-xs text-gray-500">или введите URL ниже</span>
+        </div>
+        
+        {/* URL фото */}
         <div className="flex gap-2">
           <input
             type="url"
@@ -145,9 +237,9 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
           <button
             onClick={handleAddByUrl}
             disabled={uploading || !photoUrl.trim()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:bg-gray-400"
+            className="px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 disabled:bg-gray-400"
           >
-            {uploading ? 'Добавление...' : 'Добавить'}
+            {uploading ? 'Добавление...' : 'Добавить URL'}
           </button>
         </div>
         {error && (
