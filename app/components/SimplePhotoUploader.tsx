@@ -5,11 +5,11 @@ import { supabaseAdmin as supabase } from '../utils/supabase';
 
 interface Photo {
   id: string;
-  ai_model_id: string;
+  model_id: string;
   photo_url: string;
   storage_path?: string;
   caption?: string;
-  order_index: number;
+  display_order: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -41,8 +41,8 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
       const { data, error } = await supabase
         .from('ai_model_photos')
         .select('*')
-        .eq('ai_model_id', modelId)
-        .order('order_index', { ascending: true });
+        .eq('model_id', modelId)
+        .order('display_order', { ascending: true });
 
       if (error) throw error;
       setPhotos(data || []);
@@ -69,16 +69,15 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
       setUploading(true);
       setError(null);
 
-      // Определяем следующий order_index
-      const nextOrder = photos.length > 0 ? Math.max(...photos.map(p => p.order_index)) + 1 : 1;
+      // Определяем следующий display_order
+      const nextOrder = photos.length > 0 ? Math.max(...photos.map(p => p.display_order)) + 1 : 1;
 
       const { data: photoData, error: dbError } = await supabase
         .from('ai_model_photos')
         .insert({
-          ai_model_id: modelId,
+          model_id: modelId,
           photo_url: photoUrl,
-          caption: 'Вот моё фото! 📸',
-          order_index: nextOrder,
+          display_order: nextOrder,
           is_active: true
         })
         .select()
@@ -122,21 +121,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
 
   // Обновление caption
   const updateCaption = async (photoId: string, newCaption: string) => {
-    try {
-      const { error } = await supabase
-        .from('ai_model_photos')
-        .update({ 
-          caption: newCaption,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', photoId);
-
-      if (error) throw error;
-      await loadPhotos();
-    } catch (err) {
-      console.error('Update caption error:', err);
-      setError(err instanceof Error ? err.message : 'Ошибка обновления');
-    }
+    console.log('Caption update not supported in current DB schema');
   };
 
   if (loading) {
@@ -197,7 +182,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">
-                        Фото #{photo.order_index}
+                        Фото #{photo.display_order}
                       </span>
                       <button
                         onClick={() => deletePhoto(photo)}
@@ -206,18 +191,6 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
                       >
                         Удалить
                       </button>
-                    </div>
-                    
-                    {/* Подпись к фото */}
-                    <div className="mt-2">
-                      <input
-                        type="text"
-                        value={photo.caption || ''}
-                        onChange={(e) => updateCaption(photo.id, e.target.value)}
-                        placeholder="Подпись к фото"
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                        disabled={uploading}
-                      />
                     </div>
                     
                     {/* URL фото */}
