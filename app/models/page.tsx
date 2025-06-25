@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getDatabaseInfo } from '../utils/supabase';
 import SafeImage from '../components/SafeImage';
 import SimplePhotoUploader from '../components/SimplePhotoUploader';
-import MessagePhotoUploader from '../components/MessagePhotoUploader';
 import ModelService, { AIModel } from '../utils/modelService';
 import AvatarService from '../utils/avatarService';
 import CleanupService from '../utils/cleanupService';
@@ -1557,18 +1556,6 @@ export default function ModelsPage() {
                       Эти фото отображаются в профиле модели и в каталоге моделей
                     </p>
                     <SimplePhotoUploader
-                      modelId={selectedModel.id}
-                      className="w-full"
-                    />
-                  </div>
-                  
-                  {/* Фото для сообщений */}
-                  <div className="border-t pt-4">
-                    <h3 className="text-md font-medium text-gray-800 mb-4">Фото для отправки в сообщениях</h3>
-                    <p className="text-sm text-gray-600 mb-3">
-                      Эти фото будут отправляться при нажатии кнопки 📷 в чате с пользователем
-                    </p>
-                    <MessagePhotoUploader
                       modelId={selectedModel.id}
                       className="w-full"
                     />

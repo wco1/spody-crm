@@ -17,8 +17,8 @@ export async function GET(request: Request) {
     const { data: photos, error } = await supabase
       .from('ai_model_photos')
       .select('*')
-      .eq('model_id', modelId)
-      .order('display_order', { ascending: true });
+      .eq('ai_model_id', modelId)
+      .order('order_index', { ascending: true });
 
     if (error) {
       console.error('Error fetching photos:', error);
@@ -42,11 +42,11 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { model_id, photo_url, display_order, is_active = true } = body;
+    const { ai_model_id, photo_url, caption, order_index, is_active = true } = body;
 
-    if (!model_id || !photo_url) {
+    if (!ai_model_id || !photo_url) {
       return NextResponse.json(
-        { error: 'model_id and photo_url are required' },
+        { error: 'ai_model_id and photo_url are required' },
         { status: 400 }
       );
     }
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     const { data: model, error: modelError } = await supabase
       .from('ai_models')
       .select('id')
-      .eq('id', model_id)
+      .eq('id', ai_model_id)
       .single();
 
     if (modelError || !model) {
@@ -65,26 +65,27 @@ export async function POST(request: Request) {
       );
     }
 
-    // Если display_order не указан, берем следующий номер
-    let finalOrderIndex = display_order;
+    // Если order_index не указан, берем следующий номер
+    let finalOrderIndex = order_index;
     if (finalOrderIndex === undefined || finalOrderIndex === null) {
       const { data: lastPhoto } = await supabase
         .from('ai_model_photos')
-        .select('display_order')
-        .eq('model_id', model_id)
-        .order('display_order', { ascending: false })
+        .select('order_index')
+        .eq('ai_model_id', ai_model_id)
+        .order('order_index', { ascending: false })
         .limit(1)
         .single();
 
-      finalOrderIndex = (lastPhoto?.display_order || 0) + 1;
+      finalOrderIndex = (lastPhoto?.order_index || 0) + 1;
     }
 
     const { data: photo, error } = await supabase
       .from('ai_model_photos')
       .insert({
-        model_id,
+        ai_model_id,
         photo_url,
-        display_order: finalOrderIndex,
+        caption: caption || null,
+        order_index: finalOrderIndex,
         is_active
       })
       .select()
