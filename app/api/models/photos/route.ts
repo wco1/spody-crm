@@ -3,36 +3,57 @@ import { supabaseAdmin as supabase } from '../../../utils/supabase';
 
 // GET /api/models/photos?model_id=xxx
 export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const modelId = searchParams.get('model_id');
+  const debug = searchParams.get('debug');
+
+  if (!modelId) {
+    return NextResponse.json({ error: 'Model ID is required' }, { status: 400 });
+  }
+
   try {
-    const { searchParams } = new URL(request.url);
-    const modelId = searchParams.get('model_id');
-
-    if (!modelId) {
-      return NextResponse.json(
-        { error: 'model_id is required' },
-        { status: 400 }
-      );
-    }
-
+    // Получаем все фото модели
     const { data: photos, error } = await supabase
       .from('ai_model_photos')
-      .select('*')
+      .select(`
+        id,
+        ai_model_id,
+        photo_url,
+        send_priority,
+        display_order,
+        caption,
+        created_at
+      `)
       .eq('ai_model_id', modelId)
-      .order('order_index', { ascending: true });
+      .order('send_priority')
+      .order('display_order');
 
-    if (error) {
-      console.error('Error fetching photos:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch photos' },
-        { status: 500 }
-      );
+    if (error) throw error;
+
+    // Если режим отладки - возвращаем подробную информацию
+    if (debug === 'true') {
+      const profilePhotos = photos?.filter(p => p.send_priority === 0) || [];
+      const messagePhotos = photos?.filter(p => p.send_priority > 0) || [];
+      
+      return NextResponse.json({
+        total: photos?.length || 0,
+        profilePhotos: {
+          count: profilePhotos.length,
+          photos: profilePhotos
+        },
+        messagePhotos: {
+          count: messagePhotos.length,
+          photos: messagePhotos
+        },
+        allPhotos: photos
+      });
     }
 
-    return NextResponse.json(photos || []);
+    return NextResponse.json(photos);
   } catch (error) {
-    console.error('Error in GET /api/models/photos:', error);
+    console.error('Error fetching photos:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to fetch photos' },
       { status: 500 }
     );
   }

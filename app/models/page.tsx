@@ -883,6 +883,29 @@ export default function ModelsPage() {
     }
   }, [models]);
 
+  // Диагностика фото для конкретной модели
+  const debugModelPhotos = async (modelId: string, modelName: string) => {
+    try {
+      const response = await fetch(`/api/models/photos?model_id=${modelId}&debug=true`);
+      const data = await response.json();
+      
+      console.log(`🔍 [ФОТО ДИАГНОСТИКА] ${modelName}:`, data);
+      
+      alert(`Диагностика фото для ${modelName}:
+      
+📊 Общая статистика:
+• Всего фото: ${data.total}
+• Профильных фото: ${data.profilePhotos.count}
+• Фото для сообщений: ${data.messagePhotos.count}
+
+📝 Детали в консоли браузера`);
+      
+    } catch (error) {
+      console.error('Ошибка диагностики фото:', error);
+      alert('Ошибка получения диагностики фото');
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -1038,6 +1061,14 @@ export default function ModelsPage() {
                       className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm"
                     >
                       {expandedModelId === model.id ? 'Скрыть' : 'Показать'} промпты ({getModelPrompts(model.id).length})
+                    </button>
+                    
+                    <button
+                      onClick={() => debugModelPhotos(model.id, model.name)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                      title="Диагностика фото модели"
+                    >
+                      🔍 Фото
                     </button>
                     
                     <button
