@@ -1545,22 +1545,139 @@ export default function ModelsPage() {
                 </div>
               )}
               
-              {/* Система множественных фото */}
+              {/* Современная система управления фото */}
               {!isAddingNew && selectedModel?.id && (
-                <div className="mb-6 border-t pt-4 space-y-6">
+                <div className="space-y-8">
                   
-                  {/* Фото профиля */}
-                  <div>
-                    <h3 className="text-md font-medium text-gray-800 mb-4">Галерея фото профиля</h3>
-                    <p className="text-sm text-gray-600 mb-3">
-                      Эти фото отображаются в профиле модели и в каталоге моделей
-                    </p>
+                  {/* БЛОК 1: Аватар модели */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800">Основной аватар</h3>
+                        <p className="text-sm text-gray-600">Главное фото модели, отображается в каталоге и профиле</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-6">
+                      {/* Предпросмотр аватара */}
+                      <div className="flex-shrink-0">
+                        <div className="relative w-20 h-20 rounded-full overflow-hidden border-4 border-white shadow-lg">
+                          <SafeImage
+                            src={selectedModel?.avatar_url || '/default-avatar.png'}
+                            alt={selectedModel?.name || 'Модель'}
+                            fill
+                            sizes="80px"
+                            className="object-cover"
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Управление аватаром */}
+                      <div className="flex-1">
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                            onClick={() => setUploadMethod('file')}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            Загрузить файл
+                          </button>
+                          <button
+                            type="button"
+                            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                            onClick={() => setUploadMethod('url')}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                            Указать URL
+                          </button>
+                          {selectedModel?.avatar_url && (
+                            <button
+                              type="button"
+                              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+                              onClick={() => window.open(selectedModel.avatar_url, '_blank')}
+                            >
+                              Просмотр
+                            </button>
+                          )}
+                        </div>
+                        {fileUploading && (
+                          <div className="mt-2 text-sm text-blue-600">Загрузка...</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* БЛОК 2: Галерея профиля */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="p-2 bg-green-100 rounded-lg">
+                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800">Галерея профиля</h3>
+                        <p className="text-sm text-gray-600">Дополнительные фото в профиле модели (send_priority = 0)</p>
+                      </div>
+                    </div>
+                    
                     <SimplePhotoUploader
                       modelId={selectedModel.id}
                       className="w-full"
+                      photoType="profile"
+                    />
+                  </div>
+
+                  {/* БЛОК 3: Фото для чата */}
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="p-2 bg-purple-100 rounded-lg">
+                        <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800">Фото для сообщений</h3>
+                        <p className="text-sm text-gray-600">Фото которые модель отправляет при нажатии кнопки 📷</p>
+                      </div>
+                    </div>
+                    
+                    <SimplePhotoUploader
+                      modelId={selectedModel.id}
+                      className="w-full"
+                      photoType="message"
                     />
                   </div>
                   
+                </div>
+              )}
+              
+              {/* DEBUG секции - убираем после отладки */}
+              {!isAddingNew && !selectedModel?.id && selectedModel && (
+                <div className="mb-6 border-t pt-4 space-y-6 bg-yellow-50 p-4 rounded-lg">
+                  <div className="text-yellow-800">
+                    <h3>🚨 DEBUG: Модель есть, но ID отсутствует</h3>
+                    <pre className="text-xs mt-2 bg-yellow-100 p-2 rounded">{JSON.stringify(selectedModel, null, 2)}</pre>
+                  </div>
+                </div>
+              )}
+              
+              {isAddingNew && (
+                <div className="mb-6 border-t pt-4 space-y-6 bg-blue-50 p-4 rounded-lg">
+                  <div className="text-blue-800">
+                    <h3 className="font-semibold">ℹ️ Режим добавления новой модели</h3>
+                    <p className="text-sm mt-1">Фото галерея будет доступна после сохранения модели.</p>
+                  </div>
                 </div>
               )}
               

@@ -18,11 +18,13 @@ interface Photo {
 interface SimplePhotoUploaderProps {
   modelId: string;
   className?: string;
+  photoType?: 'profile' | 'message'; // Тип фото: профиль или сообщения
 }
 
 const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
   modelId,
-  className = ''
+  className = '',
+  photoType = 'profile'
 }) => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -32,38 +34,40 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Определяем send_priority на основе типа фото
+  const getSendPriority = (type: 'profile' | 'message') => {
+    return type === 'profile' ? 0 : 1;
+  };
+
   // Загрузка существующих фото
   const loadPhotos = useCallback(async () => {
     if (!modelId) return;
 
     try {
       setLoading(true);
-      console.log('🔍 [SIMPLE UPLOADER] Загружаем фото для модели:', modelId);
+      console.log(`🔍 [SIMPLE UPLOADER] Загружаем ${photoType} фото для модели:`, modelId);
       
-      // ВРЕМЕННО: показываем все фото для диагностики
+      const targetPriority = getSendPriority(photoType);
+      
       const { data, error } = await supabase
         .from('ai_model_photos')
         .select('*')
         .eq('model_id', modelId)
+        .eq('send_priority', targetPriority)
         .order('display_order', { ascending: true });
 
-      console.log('🔍 [SIMPLE UPLOADER] Результат загрузки:', { data, error });
+      console.log(`🔍 [SIMPLE UPLOADER] ${photoType} фото:`, { data, error });
 
       if (error) throw error;
       
-      // Фильтруем только профильные фото (send_priority = 0)
-      const profilePhotos = data?.filter(photo => photo.send_priority === 0) || [];
-      console.log('🔍 [SIMPLE UPLOADER] Профильные фото:', profilePhotos);
-      console.log('🔍 [SIMPLE UPLOADER] Всего фото:', data?.length);
-      
-      setPhotos(profilePhotos);
+      setPhotos(data || []);
     } catch (err) {
       console.error('Error loading photos:', err);
       setError('Ошибка загрузки фото');
     } finally {
       setLoading(false);
     }
-  }, [modelId]);
+  }, [modelId, photoType]);
 
   useEffect(() => {
     loadPhotos();
@@ -89,7 +93,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
           model_id: modelId,
           photo_url: photoUrl,
           display_order: nextOrder,
-          send_priority: 0
+          send_priority: getSendPriority(photoType)
         })
         .select()
         .single();
@@ -157,7 +161,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
           model_id: modelId,
           photo_url: result.avatar_url,
           display_order: nextOrder,
-          send_priority: 0
+          send_priority: getSendPriority(photoType)
         });
 
       if (dbError) {
