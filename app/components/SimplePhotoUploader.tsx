@@ -159,18 +159,29 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
       }
 
       const result = await response.json();
+      console.log('🔍 [UPLOAD] Ответ от API /api/image:', result);
+
+      // Проверяем что у нас есть все необходимые данные
+      if (!result.avatar_url) {
+        throw new Error('API не вернул avatar_url');
+      }
 
       // Добавляем фото в базу как профильное фото
       const nextOrder = photos.length > 0 ? Math.max(...photos.map(p => p.display_order)) + 1 : 1;
+      
+      const insertData = {
+        model_id: modelId,
+        photo_url: result.avatar_url,
+        storage_path: result.storage_path || `public/${modelId}-${Date.now()}`, // Fallback если storage_path отсутствует
+        display_order: nextOrder,
+        send_priority: getSendPriority(photoType)
+      };
+      
+      console.log('🔍 [UPLOAD] Вставляем в базу:', insertData);
 
       const { error: dbError } = await supabase
         .from('ai_model_photos')
-        .insert({
-          model_id: modelId,
-          photo_url: result.avatar_url,
-          display_order: nextOrder,
-          send_priority: getSendPriority(photoType)
-        });
+        .insert(insertData);
 
       if (dbError) {
         throw new Error(`Ошибка БД: ${dbError.message}`);

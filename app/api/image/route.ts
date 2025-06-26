@@ -129,6 +129,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       avatar_url: urlData.publicUrl,
+      storage_path: `public/${fileName}`,
       message: 'Изображение успешно загружено'
     });
 
