@@ -1745,6 +1745,42 @@ export default function ModelsPage() {
                       photoType="message"
                     />
                   </div>
+
+                  {/* Фото для сообщений */}
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
+                        <span className="text-white">💬</span>
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-purple-900">Фото для сообщений</h3>
+                        <p className="text-sm text-purple-700">Фото которые модель отправляет при нажатии кнопки 📷 (send_priority > 0)</p>
+                      </div>
+                    </div>
+                    <SimplePhotoUploader 
+                      modelId={model.id} 
+                      photoType="message"
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Все фото (универсальный контроль) */}
+                  <div className="bg-gradient-to-br from-orange-50 to-red-100 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
+                        <span className="text-white">🗂️</span>
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-orange-900">Все фото модели</h3>
+                        <p className="text-sm text-orange-700">Полный контроль - удаление любых фото, включая те что не видны в других разделах</p>
+                      </div>
+                    </div>
+                    <SimplePhotoUploader 
+                      modelId={selectedModel.id} 
+                      photoType="all"
+                      className="w-full"
+                    />
+                  </div>
                   
                 </div>
               )}

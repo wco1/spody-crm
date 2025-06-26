@@ -18,7 +18,7 @@ interface Photo {
 interface SimplePhotoUploaderProps {
   modelId: string;
   className?: string;
-  photoType?: 'profile' | 'message'; // Тип фото: профиль или сообщения
+  photoType?: 'profile' | 'message' | 'all'; // Добавляем режим 'all'
 }
 
 const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
@@ -47,20 +47,18 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
       setLoading(true);
       console.log(`🔍 [SIMPLE UPLOADER] Загружаем ${photoType} фото для модели:`, modelId);
       
-      const targetPriority = getSendPriority(photoType);
-      
       let query = supabase
         .from('ai_model_photos')
         .select('*')
         .eq('model_id', modelId);
 
-      // Для профильных фото - точное соответствие send_priority = 0
-      // Для message фото - все с send_priority > 0
+      // Фильтрация по типу фото
       if (photoType === 'profile') {
         query = query.eq('send_priority', 0);
-      } else {
+      } else if (photoType === 'message') {
         query = query.gt('send_priority', 0);
       }
+      // Для photoType === 'all' не добавляем фильтр по send_priority
       
       const { data, error } = await query.order('display_order', { ascending: true });
 
@@ -227,7 +225,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
         <div className="font-medium text-blue-800 mb-1">Диагностика фото:</div>
         <div className="text-blue-700">
-          • {photoType === 'profile' ? 'Профильных' : 'Для сообщений'} фото: {photos.length}
+          • {photoType === 'profile' ? 'Профильных' : photoType === 'message' ? 'Для сообщений' : 'Всех'} фото: {photos.length}
           <button
             onClick={async () => {
               try {
