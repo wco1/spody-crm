@@ -49,12 +49,20 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
       
       const targetPriority = getSendPriority(photoType);
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('ai_model_photos')
         .select('*')
-        .eq('model_id', modelId)
-        .eq('send_priority', targetPriority)
-        .order('display_order', { ascending: true });
+        .eq('model_id', modelId);
+
+      // Для профильных фото - точное соответствие send_priority = 0
+      // Для message фото - все с send_priority > 0
+      if (photoType === 'profile') {
+        query = query.eq('send_priority', 0);
+      } else {
+        query = query.gt('send_priority', 0);
+      }
+      
+      const { data, error } = await query.order('display_order', { ascending: true });
 
       console.log(`🔍 [SIMPLE UPLOADER] ${photoType} фото:`, { data, error });
 
@@ -219,7 +227,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
         <div className="font-medium text-blue-800 mb-1">Диагностика фото:</div>
         <div className="text-blue-700">
-          • Профильных фото: {photos.length}
+          • {photoType === 'profile' ? 'Профильных' : 'Для сообщений'} фото: {photos.length}
           <button
             onClick={async () => {
               try {
@@ -228,8 +236,9 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
                   .select('*')
                   .eq('model_id', modelId);
                 
+                const profilePhotos = allPhotos?.filter(p => p.send_priority === 0) || [];
                 const messagePhotos = allPhotos?.filter(p => p.send_priority > 0) || [];
-                alert(`Всего фото: ${allPhotos?.length || 0}\nПрофильных: ${photos.length}\nДля сообщений: ${messagePhotos.length}`);
+                alert(`Всего фото: ${allPhotos?.length || 0}\nПрофильных (priority=0): ${profilePhotos.length}\nДля сообщений (priority>0): ${messagePhotos.length}`);
               } catch (err) {
                 console.error('Ошибка диагностики:', err);
                 alert('Ошибка диагностики');
