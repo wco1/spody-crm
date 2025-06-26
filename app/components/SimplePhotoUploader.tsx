@@ -35,8 +35,10 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Определяем send_priority на основе типа фото
-  const getSendPriority = (type: 'profile' | 'message') => {
-    return type === 'profile' ? 0 : 1;
+  const getSendPriority = (type: 'profile' | 'message' | 'all') => {
+    if (type === 'profile') return 0;
+    if (type === 'message') return 1;
+    return 0; // Для 'all' возвращаем дефолтное значение (не используется в запросах)
   };
 
   // Загрузка существующих фото

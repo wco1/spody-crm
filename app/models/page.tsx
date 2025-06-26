@@ -1735,7 +1735,7 @@ export default function ModelsPage() {
                       </div>
                       <div>
                         <h3 className="text-lg font-semibold text-gray-800">Фото для сообщений</h3>
-                        <p className="text-sm text-gray-600">Фото которые модель отправляет при нажатии кнопки 📷</p>
+                        <p className="text-sm text-gray-600">Фото которые модель отправляет при нажатии кнопки 📷 (send_priority больше 0)</p>
                       </div>
                     </div>
                     
@@ -1743,24 +1743,6 @@ export default function ModelsPage() {
                       modelId={selectedModel.id}
                       className="w-full"
                       photoType="message"
-                    />
-                  </div>
-
-                  {/* Фото для сообщений */}
-                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
-                        <span className="text-white">💬</span>
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-purple-900">Фото для сообщений</h3>
-                        <p className="text-sm text-purple-700">Фото которые модель отправляет при нажатии кнопки 📷 (send_priority > 0)</p>
-                      </div>
-                    </div>
-                    <SimplePhotoUploader 
-                      modelId={model.id} 
-                      photoType="message"
-                      className="w-full"
                     />
                   </div>
 
