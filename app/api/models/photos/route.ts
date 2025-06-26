@@ -56,14 +56,14 @@ export async function GET(request: Request) {
       .from('ai_model_photos')
       .select(`
         id,
-        ai_model_id,
+        model_id,
         photo_url,
         send_priority,
         display_order,
         caption,
         created_at
       `)
-      .eq('ai_model_id', modelId)
+      .eq('model_id', modelId)
       .order('send_priority')
       .order('display_order');
 
@@ -115,11 +115,11 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { ai_model_id, photo_url, caption, order_index, is_active = true } = body;
+    const { model_id, photo_url, caption, order_index, is_active = true } = body;
 
-    if (!ai_model_id || !photo_url) {
+    if (!model_id || !photo_url) {
       return NextResponse.json(
-        { error: 'ai_model_id and photo_url are required' },
+        { error: 'model_id and photo_url are required' },
         { status: 400 }
       );
     }
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     const { data: model, error: modelError } = await supabase
       .from('ai_models')
       .select('id')
-      .eq('id', ai_model_id)
+      .eq('id', model_id)
       .single();
 
     if (modelError || !model) {
@@ -144,7 +144,7 @@ export async function POST(request: Request) {
       const { data: lastPhoto } = await supabase
         .from('ai_model_photos')
         .select('order_index')
-        .eq('ai_model_id', ai_model_id)
+        .eq('model_id', model_id)
         .order('order_index', { ascending: false })
         .limit(1)
         .single();
@@ -155,7 +155,7 @@ export async function POST(request: Request) {
     const { data: photo, error } = await supabase
       .from('ai_model_photos')
       .insert({
-        ai_model_id,
+        model_id,
         photo_url,
         caption: caption || null,
         order_index: finalOrderIndex,

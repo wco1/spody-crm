@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     
     const { data: photos, error } = await supabase
       .from("ai_model_photos")
-      .select("id, ai_model_id, photo_url, send_priority")
+      .select("id, model_id, photo_url, send_priority")
       .limit(5);
     
     if (error) {
@@ -23,15 +23,36 @@ export async function GET(request: Request) {
     
     console.log("✅ Таблица ai_model_photos доступна, найдено записей:", photos?.length || 0);
     
+    // Проверяем структуру
+    const { data: sampleData, error: sampleError } = await supabase
+      .from('ai_model_photos')
+      .select('*')
+      .limit(1);
+
+    let structureInfo = '';
+    if (sampleData && sampleData.length > 0) {
+      const fields = Object.keys(sampleData[0]);
+      structureInfo = `Поля: ${fields.join(', ')}`;
+    }
+
+    // Подсчитываем записи
+    const { count, error: countError } = await supabase
+      .from('ai_model_photos')
+      .select('*', { count: 'exact', head: true });
+
     return NextResponse.json({
       success: true,
       photosCount: photos?.length || 0,
       samplePhotos: photos?.slice(0, 3) || [],
-      message: "Table ai_model_photos is accessible"
+      message: "Table ai_model_photos is accessible",
+      tableExists: true,
+      totalRecords: count || 0,
+      structure: structureInfo,
+      sampleRecord: sampleData?.[0] || null
     });
     
   } catch (error) {
-    console.error("�� Критическая ошибка:", error);
+    console.error("❌ Критическая ошибка:", error);
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : String(error)

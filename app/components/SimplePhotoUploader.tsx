@@ -5,7 +5,7 @@ import { supabaseAdmin as supabase } from '../utils/supabase';
 
 interface Photo {
   id: string;
-  ai_model_id: string;
+  model_id: string;
   photo_url: string;
   storage_path?: string;
   caption?: string;
@@ -52,7 +52,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
       const { data, error } = await supabase
         .from('ai_model_photos')
         .select('*')
-        .eq('ai_model_id', modelId)
+        .eq('model_id', modelId)
         .eq('send_priority', targetPriority)
         .order('display_order', { ascending: true });
 
@@ -90,7 +90,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
       const { data: photoData, error: dbError } = await supabase
         .from('ai_model_photos')
         .insert({
-          ai_model_id: modelId,
+          model_id: modelId,
           photo_url: photoUrl,
           display_order: nextOrder,
           send_priority: getSendPriority(photoType)
@@ -137,7 +137,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
       // Создаем FormData для загрузки
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('ai_model_id', modelId);
+      formData.append('model_id', modelId);
 
       // Загружаем через API
       const response = await fetch('/api/image', {
@@ -158,7 +158,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
       const { error: dbError } = await supabase
         .from('ai_model_photos')
         .insert({
-          ai_model_id: modelId,
+          model_id: modelId,
           photo_url: result.avatar_url,
           display_order: nextOrder,
           send_priority: getSendPriority(photoType)
@@ -226,7 +226,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
                 const { data: allPhotos } = await supabase
                   .from('ai_model_photos')
                   .select('*')
-                  .eq('ai_model_id', modelId);
+                  .eq('model_id', modelId);
                 
                 const messagePhotos = allPhotos?.filter(p => p.send_priority > 0) || [];
                 alert(`Всего фото: ${allPhotos?.length || 0}\nПрофильных: ${photos.length}\nДля сообщений: ${messagePhotos.length}`);
@@ -303,7 +303,7 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
                   const { data: allPhotos } = await supabase
                     .from('ai_model_photos')
                     .select('*')
-                    .eq('ai_model_id', modelId)
+                    .eq('model_id', modelId)
                     .gt('send_priority', 0)
                     .order('created_at', { ascending: true });
                   
