@@ -887,22 +887,39 @@ export default function ModelsPage() {
   const debugModelPhotos = async (modelId: string, modelName: string) => {
     try {
       const response = await fetch(`/api/models/photos?model_id=${modelId}&debug=true`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API Error:', response.status, errorText);
+        alert(`Ошибка API (${response.status}): ${errorText}`);
+        return;
+      }
+      
       const data = await response.json();
       
       console.log(`🔍 [ФОТО ДИАГНОСТИКА] ${modelName}:`, data);
       
-      alert(`Диагностика фото для ${modelName}:
-      
+      // Безопасная проверка структуры данных
+      if (data && typeof data === 'object') {
+        const total = data.total || 0;
+        const profileCount = data.profilePhotos?.count || 0;
+        const messageCount = data.messagePhotos?.count || 0;
+        
+        alert(`Диагностика фото для ${modelName}:
+        
 📊 Общая статистика:
-• Всего фото: ${data.total}
-• Профильных фото: ${data.profilePhotos.count}
-• Фото для сообщений: ${data.messagePhotos.count}
+• Всего фото: ${total}
+• Профильных фото: ${profileCount}
+• Фото для сообщений: ${messageCount}
 
 📝 Детали в консоли браузера`);
+      } else {
+        alert(`Диагностика фото для ${modelName}: Нет данных или неверный формат ответа`);
+      }
       
     } catch (error) {
       console.error('Ошибка диагностики фото:', error);
-      alert('Ошибка получения диагностики фото');
+      alert(`Ошибка получения диагностики фото: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -946,6 +963,45 @@ export default function ModelsPage() {
           >
             Очистить кэш аватаров
           </button>
+          
+          <button
+            className="btn-outline text-blue-600 border-blue-300 hover:border-blue-400 text-sm py-1.5"
+            onClick={async () => {
+              try {
+                const response = await fetch('/api/test-photos');
+                const data = await response.json();
+                if (data.success) {
+                  alert(`✅ Таблица ai_model_photos работает!\n\nНайдено фото: ${data.photosCount}`);
+                } else {
+                  alert(`❌ Ошибка таблицы ai_model_photos:\n\n${data.error}`);
+                }
+              } catch (err) {
+                alert(`💥 Ошибка проверки: ${err instanceof Error ? err.message : String(err)}`);
+              }
+            }}
+          >
+            🔍 Тест фото БД
+          </button>
+          
+          <button
+            className="btn-outline text-green-600 border-green-300 hover:border-green-400 text-sm py-1.5"
+            onClick={async () => {
+              try {
+                const response = await fetch('/api/migrate-photos', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                  alert(`✅ ${data.message}`);
+                } else {
+                  alert(`❌ Ошибка миграции:\n\n${data.error}\n\n${data.hint || ''}`);
+                }
+              } catch (err) {
+                alert(`💥 Ошибка миграции: ${err instanceof Error ? err.message : String(err)}`);
+              }
+            }}
+          >
+            🛠️ Миграция БД
+          </button>
+          
           <button
             className="btn-outline text-red-500 hover:text-red-700 border-red-200 hover:border-red-300 text-sm py-1.5"
             onClick={() => cleanupTestModels(false)}

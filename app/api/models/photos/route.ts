@@ -6,12 +6,51 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const modelId = searchParams.get('model_id');
   const debug = searchParams.get('debug');
+  const checkTable = searchParams.get('check_table');
 
   if (!modelId) {
     return NextResponse.json({ error: 'Model ID is required' }, { status: 400 });
   }
 
   try {
+    // Если запрошена проверка таблицы
+    if (checkTable === 'true') {
+      console.log('🔍 Проверяем существование таблицы ai_model_photos...');
+      
+      // Проверяем существование таблицы
+      const { data: tableCheck, error: tableError } = await supabase
+        .from('information_schema.tables')
+        .select('table_name')
+        .eq('table_schema', 'public')
+        .eq('table_name', 'ai_model_photos');
+      
+      if (tableError) {
+        console.error('Ошибка проверки таблицы:', tableError);
+        return NextResponse.json({
+          error: 'Failed to check table existence',
+          details: tableError.message
+        }, { status: 500 });
+      }
+      
+      const tableExists = tableCheck && tableCheck.length > 0;
+      console.log('📊 Таблица ai_model_photos существует:', tableExists);
+      
+      if (!tableExists) {
+        return NextResponse.json({
+          error: 'Table ai_model_photos does not exist',
+          suggestion: 'Please run the migration script',
+          tableExists: false
+        }, { status: 404 });
+      }
+      
+      return NextResponse.json({
+        message: 'Table ai_model_photos exists',
+        tableExists: true
+      });
+    }
+
+    console.log(`🔍 Получаем фото для модели: ${modelId}`);
+    
     // Получаем все фото модели
     const { data: photos, error } = await supabase
       .from('ai_model_photos')
@@ -28,7 +67,17 @@ export async function GET(request: Request) {
       .order('send_priority')
       .order('display_order');
 
-    if (error) throw error;
+    if (error) {
+      console.error('Ошибка получения фото:', error);
+      return NextResponse.json({
+        error: 'Failed to fetch photos',
+        details: error.message,
+        code: error.code,
+        hint: error.hint
+      }, { status: 500 });
+    }
+
+    console.log(`📸 Найдено фото: ${photos?.length || 0}`);
 
     // Если режим отладки - возвращаем подробную информацию
     if (debug === 'true') {
@@ -45,15 +94,18 @@ export async function GET(request: Request) {
           count: messagePhotos.length,
           photos: messagePhotos
         },
-        allPhotos: photos
+        allPhotos: photos || []
       });
     }
 
-    return NextResponse.json(photos);
+    return NextResponse.json(photos || []);
   } catch (error) {
-    console.error('Error fetching photos:', error);
+    console.error('Критическая ошибка в GET /api/models/photos:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch photos' },
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }
