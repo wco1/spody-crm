@@ -223,6 +223,111 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
     }
   };
 
+  // Изменение порядка фото
+  const movePhoto = async (photoId: string, direction: 'up' | 'down') => {
+    const currentIndex = photos.findIndex(p => p.id === photoId);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= photos.length) return;
+
+    try {
+      setUploading(true);
+      
+      // Создаем новый массив с переставленными элементами
+      const newPhotos = [...photos];
+      [newPhotos[currentIndex], newPhotos[targetIndex]] = [newPhotos[targetIndex], newPhotos[currentIndex]];
+      
+      // Обновляем send_priority для фото сообщений или display_order для профильных
+      const updates = newPhotos.map((photo, index) => {
+        if (photoType === 'message') {
+          return supabase
+            .from('ai_model_photos')
+            .update({ send_priority: index + 1 })
+            .eq('id', photo.id);
+        } else {
+          return supabase
+            .from('ai_model_photos')
+            .update({ display_order: index })
+            .eq('id', photo.id);
+        }
+      });
+
+      await Promise.all(updates);
+      await loadPhotos();
+      
+    } catch (err) {
+      console.error('Move error:', err);
+      setError(err instanceof Error ? err.message : 'Ошибка перемещения');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Drag & Drop функциональность
+  const [draggedItem, setDraggedItem] = useState<string | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, photoId: string) => {
+    setDraggedItem(photoId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetPhotoId: string) => {
+    e.preventDefault();
+    
+    if (!draggedItem || draggedItem === targetPhotoId) {
+      setDraggedItem(null);
+      return;
+    }
+
+    const draggedIndex = photos.findIndex(p => p.id === draggedItem);
+    const targetIndex = photos.findIndex(p => p.id === targetPhotoId);
+    
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedItem(null);
+      return;
+    }
+
+    try {
+      setUploading(true);
+      
+      // Создаем новый массив с переставленными элементами
+      const newPhotos = [...photos];
+      const [draggedPhoto] = newPhotos.splice(draggedIndex, 1);
+      newPhotos.splice(targetIndex, 0, draggedPhoto);
+      
+      // Обновляем порядок в базе данных
+      const updates = newPhotos.map((photo, index) => {
+        if (photoType === 'message') {
+          return supabase
+            .from('ai_model_photos')
+            .update({ send_priority: index + 1 })
+            .eq('id', photo.id);
+        } else {
+          return supabase
+            .from('ai_model_photos')
+            .update({ display_order: index })
+            .eq('id', photo.id);
+        }
+      });
+
+      await Promise.all(updates);
+      await loadPhotos();
+      
+    } catch (err) {
+      console.error('Drag & drop error:', err);
+      setError(err instanceof Error ? err.message : 'Ошибка перестановки');
+    } finally {
+      setUploading(false);
+      setDraggedItem(null);
+    }
+  };
+
   // Обновление caption
   const updateCaption = async (photoId: string, newCaption: string) => {
     console.log('Caption update not supported in current DB schema');
@@ -352,9 +457,42 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
           </div>
         ) : (
           <div className="space-y-2">
+            {photoType === 'message' && photos.length > 1 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
+                <div className="flex items-center gap-2 text-yellow-800">
+                  <span className="text-lg">🔄</span>
+                  <div>
+                    <div className="font-medium">Управление порядком отправки</div>
+                    <div className="text-yellow-700">Перетащите фото или используйте кнопки ↑↓ для изменения последовательности отправки в чате</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {photos.map((photo, index) => (
-              <div key={photo.id} className="border border-gray-200 rounded-lg p-3">
+              <div 
+                key={photo.id} 
+                className={`border border-gray-200 rounded-lg p-3 transition-all duration-200 ${
+                  draggedItem === photo.id ? 'opacity-50 scale-95' : 'hover:border-gray-300'
+                } ${photoType === 'message' ? 'cursor-move' : ''}`}
+                draggable={photoType === 'message' && photos.length > 1}
+                onDragStart={(e) => handleDragStart(e, photo.id)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, photo.id)}
+              >
                 <div className="flex items-start gap-3">
+                  {/* Номер и Drag Handle для фото сообщений */}
+                  {photoType === 'message' && (
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm font-bold text-blue-700">
+                        {photo.send_priority || index + 1}
+                      </div>
+                      {photos.length > 1 && (
+                        <div className="text-gray-400 text-xs">≡</div>
+                      )}
+                    </div>
+                  )}
+                  
                   {/* Превью фото */}
                   <img
                     src={photo.photo_url}
@@ -369,15 +507,43 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">
-                        Фото #{photo.display_order}
+                        {photoType === 'message' 
+                          ? `Фото #${photo.send_priority || index + 1} (отправка в чате)`
+                          : `Фото #${photo.display_order} (профиль)`
+                        }
                       </span>
-                      <button
-                        onClick={() => deletePhoto(photo)}
-                        className="text-red-600 hover:text-red-800 text-sm"
-                        disabled={uploading}
-                      >
-                        Удалить
-                      </button>
+                      
+                      <div className="flex items-center gap-1">
+                        {/* Кнопки перемещения для фото сообщений */}
+                        {photoType === 'message' && photos.length > 1 && (
+                          <>
+                            <button
+                              onClick={() => movePhoto(photo.id, 'up')}
+                              disabled={index === 0 || uploading}
+                              className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-400 rounded"
+                              title="Переместить вверх (раньше в очереди)"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              onClick={() => movePhoto(photo.id, 'down')}
+                              disabled={index === photos.length - 1 || uploading}
+                              className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-400 rounded"
+                              title="Переместить вниз (позже в очереди)"
+                            >
+                              ↓
+                            </button>
+                          </>
+                        )}
+                        
+                        <button
+                          onClick={() => deletePhoto(photo)}
+                          className="text-red-600 hover:text-red-800 text-sm px-2 py-1 hover:bg-red-50 rounded"
+                          disabled={uploading}
+                        >
+                          Удалить
+                        </button>
+                      </div>
                     </div>
                     
                     {/* URL фото */}
@@ -389,10 +555,35 @@ const SimplePhotoUploader: React.FC<SimplePhotoUploaderProps> = ({
                         className="w-full px-2 py-1 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600"
                       />
                     </div>
+                    
+                    {/* Дополнительная информация для фото сообщений */}
+                    {photoType === 'message' && (
+                      <div className="mt-2 text-xs text-gray-500">
+                        <span className="bg-gray-100 px-2 py-1 rounded">
+                          Приоритет отправки: {photo.send_priority}
+                        </span>
+                        <span className="ml-2">
+                          {index === 0 && '👑 Отправится первым'}
+                          {index === photos.length - 1 && index !== 0 && '🏁 Отправится последним'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
+            
+            {/* Подсказки по использованию */}
+            {photoType === 'message' && photos.length > 1 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                <div className="text-blue-800 font-medium mb-1">💡 Как изменить порядок:</div>
+                <ul className="text-blue-700 space-y-1">
+                  <li>• <strong>Drag & Drop:</strong> Перетащите фото на нужное место</li>
+                  <li>• <strong>Кнопки ↑↓:</strong> Переместить на одну позицию</li>
+                  <li>• <strong>Нумерация:</strong> Показывает порядок отправки в чате</li>
+                </ul>
+              </div>
+            )}
           </div>
         )}
       </div>
