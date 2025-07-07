@@ -637,7 +637,8 @@ export default function ModelsPage() {
             genres: newModel.genres,
             prompt_template_id: newModel.prompt_template_id || undefined,
             custom_prompt: newModel.custom_prompt || '',
-            use_custom_prompt: newModel.use_custom_prompt
+            use_custom_prompt: newModel.use_custom_prompt,
+            is_likes_model: newModel.is_likes_model
           });
           
           if (createdModel) {
@@ -696,7 +697,8 @@ export default function ModelsPage() {
             genres: newModel.genres,
             prompt_template_id: newModel.prompt_template_id || undefined,
             custom_prompt: newModel.custom_prompt || '',
-            use_custom_prompt: newModel.use_custom_prompt
+            use_custom_prompt: newModel.use_custom_prompt,
+            is_likes_model: newModel.is_likes_model
           });
           
           if (createdModel) {
@@ -725,7 +727,8 @@ export default function ModelsPage() {
               genres: selectedModel.genres,
               prompt_template_id: selectedModel.prompt_template_id || undefined,
               custom_prompt: selectedModel.custom_prompt || '',
-              use_custom_prompt: selectedModel.use_custom_prompt
+              use_custom_prompt: selectedModel.use_custom_prompt,
+              is_likes_model: selectedModel.is_likes_model
             });
             
             if (updatedModel) {
@@ -751,7 +754,8 @@ export default function ModelsPage() {
               genres: selectedModel.genres,
               prompt_template_id: selectedModel.prompt_template_id || undefined,
               custom_prompt: selectedModel.custom_prompt || '',
-              use_custom_prompt: selectedModel.use_custom_prompt
+              use_custom_prompt: selectedModel.use_custom_prompt,
+              is_likes_model: selectedModel.is_likes_model
             });
             
             if (updatedModel) {
@@ -798,7 +802,8 @@ export default function ModelsPage() {
             genres: selectedModel.genres,
             prompt_template_id: selectedModel.prompt_template_id || undefined,
             custom_prompt: selectedModel.custom_prompt || '',
-            use_custom_prompt: selectedModel.use_custom_prompt
+            use_custom_prompt: selectedModel.use_custom_prompt,
+            is_likes_model: selectedModel.is_likes_model
           };
           
           console.log('Update data prepared:', updateData);
