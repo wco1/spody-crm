@@ -92,7 +92,8 @@ export default function ModelsPage() {
     genres: [] as string[],
     prompt_template_id: '',
     custom_prompt: '',
-    use_custom_prompt: false
+    use_custom_prompt: false,
+    is_likes_model: false
   });
 
   // Новый промпт
@@ -472,7 +473,8 @@ export default function ModelsPage() {
       gender: '',
       prompt_template_id: '',
       custom_prompt: '',
-      use_custom_prompt: false
+      use_custom_prompt: false,
+      is_likes_model: false
     });
     setIsModalOpen(true);
   };
@@ -1087,6 +1089,13 @@ export default function ModelsPage() {
                       
                       {/* Информация о промпте */}
                       <div className="mt-2 flex flex-wrap gap-1">
+                        {/* Индикатор лайк-модели */}
+                        {model.is_likes_model && (
+                          <span className="px-2 py-1 bg-pink-100 text-pink-800 rounded-full text-xs">
+                            💖 Лайк-модель
+                          </span>
+                        )}
+                        
                         {model.use_custom_prompt ? (
                           <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
                             🔧 Кастомный промпт
@@ -1487,6 +1496,27 @@ export default function ModelsPage() {
                   className="w-full input"
                   placeholder="Введите имя модели"
                 />
+              </div>
+
+              {/* Добавляем чекбокс для лайк-модели */}
+              <div className="mb-4 flex items-center">
+                <input
+                  type="checkbox"
+                  id="is_likes_model"
+                  name="is_likes_model"
+                  checked={isAddingNew ? newModel.is_likes_model : selectedModel?.is_likes_model || false}
+                  onChange={(e) => {
+                    if (isAddingNew) {
+                      setNewModel({...newModel, is_likes_model: e.target.checked});
+                    } else if (selectedModel) {
+                      setSelectedModel({...selectedModel, is_likes_model: e.target.checked});
+                    }
+                  }}
+                  className="mr-2 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="is_likes_model" className="text-sm font-medium text-gray-700">
+                  💖 Показывать в разделе лайков (предустановленные лайки)
+                </label>
               </div>
               
               <div className="mb-4">

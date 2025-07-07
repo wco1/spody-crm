@@ -16,6 +16,7 @@ export interface AIModel {
   prompt_template_id?: string;
   custom_prompt?: string;
   use_custom_prompt?: boolean;
+  is_likes_model?: boolean; // Новое поле для лайк-моделей
 }
 
 export interface ModelCreateInput {
@@ -29,6 +30,7 @@ export interface ModelCreateInput {
   prompt_template_id?: string;
   custom_prompt?: string;
   use_custom_prompt?: boolean;
+  is_likes_model?: boolean; // Новое поле для лайк-моделей
 }
 
 export interface ModelUpdateInput {
@@ -42,6 +44,7 @@ export interface ModelUpdateInput {
   prompt_template_id?: string;
   custom_prompt?: string;
   use_custom_prompt?: boolean;
+  is_likes_model?: boolean; // Новое поле для лайк-моделей
 }
 
 // Класс для работы с моделями
@@ -119,7 +122,8 @@ export class ModelService {
           character_id: model.character_id || undefined,
           prompt_template_id: model.prompt_template_id || undefined,
           custom_prompt: model.custom_prompt || '',
-          use_custom_prompt: model.use_custom_prompt || false
+          use_custom_prompt: model.use_custom_prompt || false,
+          is_likes_model: model.is_likes_model || false // Новое поле
         }])
         .select();
       
@@ -345,7 +349,8 @@ export class ModelService {
         gender: 'female',
         prompt_template_id: undefined,
         custom_prompt: '',
-        use_custom_prompt: false
+        use_custom_prompt: false,
+        is_likes_model: false
       };
       
       console.log('Создаем тестовую модель с именем:', testModelData.name);
