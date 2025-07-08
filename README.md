@@ -377,3 +377,5 @@ node test-url-validation.mjs
 npm run dev
 node open-website.js
 ```
+
+<!-- Последнее обновление: откат к стабильной версии для исправления ошибок деплоя -->
